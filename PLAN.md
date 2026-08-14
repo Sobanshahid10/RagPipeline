@@ -1,859 +1,918 @@
-# 12-Day Production RAG Pipeline Implementation Plan
-### Project: Production RAG & Evaluation Engine (RagPipeline)
+# Production RAG Pipeline — 12-Day Implementation Guide
 ### Repository: https://github.com/Sobanshahid10/RagPipeline
 
-> **Goal**: Build a complete, production-grade Retrieval-Augmented Generation (RAG) platform with Tri-Hybrid Search (BM25 + pgvector + GraphRAG), ColBERT Reranking, Vision Layout Parsing, Real-Time SSE Streaming, Bounding-Box PDF Citations, Agentic Query Routing, OpenTelemetry Observability, RAGAS Evaluation CI/CD, and dbt Analytics — from scratch to a fully deployed, enterprise-ready system.
+> This is a day-by-day execution guide. Every task specifies exactly what file to create, what it must contain, and what test proves it works. Nothing is vague. Follow this top to bottom and you will have a fully deployed, production-grade RAG platform on Day 12.
 
 ---
 
-## Overview Timeline
+## Day 1 — Project Scaffold, Docker Infrastructure & PostgreSQL Schema
 
-| Day | Focus Area | Status |
-|:---:|:---|:---:|
-| 1 | Foundation: Docker, PostgreSQL, Redis, Schema, RLS | |
-| 2 | Authentication System: JWT, Multi-Tenant, RLS Policies | |
-| 3 | Document Ingestion: Vision Parsing, PII Masking, Chunking | |
-| 4 | Vector Indexing: pgvector HNSW, BM25 TSVector, Celery Workers | |
-| 5 | Knowledge Graph: GraphRAG Entity Extraction & Triple Storage | |
-| 6 | Retrieval Engine: RRF Fusion, ColBERT ONNX Reranker, Contextual Compression | |
-| 7 | Agentic Query Layer: HyDE, Query Expansion, Redis Semantic Cache | |
-| 8 | LLM Generation: Structured Streaming, Bounding-Box Citations, SSE | |
-| 9 | Next.js Frontend: Streaming Chat UI, PDF Viewer, Citation Highlighting | |
-| 10 | Observability: OpenTelemetry, LangFuse Tracing, Admin Dashboard | |
-| 11 | RAGAS CI/CD Eval: Golden Dataset, Tiered GitHub Actions, Hard-Negative Mining | |
-| 12 | dbt Analytics, Load Testing, Security Hardening & Production Deploy | |
+**Goal:** Every service runs, the database schema is live, and FastAPI returns 200 on `/health`.
 
----
+**Deliverables:**
+- `docker-compose.yml` — orchestrates PostgreSQL, Redis, FastAPI backend, Celery worker
+- `backend/db/init.sql` — full schema with extensions, indexes, and RLS
+- `backend/app/main.py` — FastAPI app with `/health` and `/api/v1/info`
+- `backend/app/config.py` — Pydantic Settings from environment variables
+- `backend/Dockerfile` — reproducible Python 3.11 image
+- `backend/requirements.txt` — pinned dependency list
+- `.gitignore` — excludes `.venv/`, `.env`, `__pycache__/`, `*.pyc`, `node_modules/`
 
-## Day 1 — Foundation: Infrastructure, Docker, PostgreSQL Schema, Redis
+**Tasks:**
 
-### Learning Objectives
-- Understand how to compose multi-service backends with Docker Compose
-- Learn pgvector extension setup and vector index types (HNSW vs IVFFlat)
-- Understand Row-Level Security (RLS) concepts in PostgreSQL
-- Grasp Redis connection pooling and async patterns with FastAPI
+1. **Create `docker-compose.yml`** at project root. It must define four services:
+   - `postgres`: image `pgvector/pgvector:pg16`, port `5432`, healthcheck `pg_isready -U rag_user -d rag_db`, volume `postgres_data:/var/lib/postgresql/data`, mounts `./backend/db/init.sql` into `/docker-entrypoint-initdb.d/`
+   - `redis`: image `redis:7-alpine`, port `6379`, healthcheck `redis-cli ping`
+   - `backend`: built from `./backend/Dockerfile`, port `8000:8000`, `depends_on` postgres and redis with `condition: service_healthy`
+   - `celery_worker`: same image as backend, command `celery -A app.celery_app worker --loglevel=info -Q high_priority,low_priority --concurrency=4`
 
-### Implementation Tasks
+2. **Create `backend/db/init.sql`**. It must:
+   - Run `CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`, `"vector"`, `"pg_trgm"` in that order
+   - Create table `tenants(id UUID, name TEXT, slug VARCHAR(50) UNIQUE, created_at TIMESTAMPTZ)`
+   - Create table `users(id UUID, tenant_id UUID FK→tenants, email TEXT UNIQUE, hashed_password TEXT, roles TEXT[] DEFAULT '{viewer}', is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMPTZ)`
+   - Create table `documents(id UUID, tenant_id UUID, filename TEXT, file_type VARCHAR(20), doc_hash VARCHAR(64) UNIQUE, storage_uri TEXT, status VARCHAR(20) DEFAULT 'pending', total_pages INT DEFAULT 0, metadata JSONB DEFAULT '{}', created_at TIMESTAMPTZ, updated_at TIMESTAMPTZ)`
+   - Create table `chunks(id UUID, document_id UUID FK→documents ON DELETE CASCADE, tenant_id UUID, chunk_index INT, content TEXT, contextual_summary TEXT, page_number INT, bounding_box JSONB, token_count INT, embedding VECTOR(1536), sparse_tsv TSVECTOR, created_at TIMESTAMPTZ)`
+   - Create table `entity_triples(id UUID, tenant_id UUID, source_chunk_id UUID FK→chunks ON DELETE CASCADE, subject TEXT, predicate TEXT, object TEXT, created_at TIMESTAMPTZ)`
+   - Create table `query_interactions(id UUID, tenant_id UUID, user_id UUID, session_id UUID, raw_query TEXT, rewritten_query TEXT, route_used VARCHAR(50), retrieved_chunk_ids UUID[], answer TEXT, ttft_ms INT, total_latency_ms INT, prompt_tokens INT, completion_tokens INT, user_feedback INT DEFAULT 0, created_at TIMESTAMPTZ)`
+   - Create table `eval_scores(id UUID, interaction_id UUID FK→query_interactions, context_recall FLOAT, context_precision FLOAT, faithfulness FLOAT, answer_relevancy FLOAT, hallucination_detected BOOLEAN DEFAULT FALSE, evaluated_at TIMESTAMPTZ)`
+   - Create HNSW index: `CREATE INDEX idx_chunks_hnsw ON chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);`
+   - Create GIN index: `CREATE INDEX idx_chunks_sparse_tsv ON chunks USING gin (sparse_tsv);`
+   - Run `ALTER TABLE documents ENABLE ROW LEVEL SECURITY;` and same for `chunks`, `entity_triples`, `query_interactions`
 
-#### 1.1 Project Scaffolding
-```
-RagPipeline/
-├── backend/
-│   ├── app/
-│   │   ├── api/
-│   │   ├── ingestion/
-│   │   ├── retrieval/
-│   │   ├── generation/
-│   │   ├── evaluation/
-│   │   ├── db/
-│   │   ├── models/
-│   │   ├── schemas/
-│   │   ├── core/
-│   │   └── main.py
-│   ├── tests/
-│   ├── db/
-│   │   └── init.sql
-│   ├── requirements.txt
-│   ├── Dockerfile
-│   └── pytest.ini
-├── frontend/          # Next.js 14 App Router
-├── dbt/               # dbt Analytics Models
-├── .github/
-│   └── workflows/
-├── docker-compose.yml
-└── README.md
-```
+3. **Create `backend/app/config.py`** using `pydantic_settings.BaseSettings`. Fields: `PROJECT_NAME`, `API_V1_STR="/api/v1"`, `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ALGORITHM="HS256"`, `ACCESS_TOKEN_EXPIRE_MINUTES=1440`. Load from `.env` file.
 
-#### 1.2 Docker Compose Setup
-- PostgreSQL 16 with pgvector, pg_trgm, uuid-ossp extensions
-- Redis 7 Alpine for caching and Celery message broker
-- FastAPI backend container
-- Celery worker container (separate from API)
-- Next.js frontend container
+4. **Create `backend/app/main.py`**. It must:
+   - Instantiate `FastAPI(title=settings.PROJECT_NAME, docs_url="/docs")`
+   - Add `CORSMiddleware` allowing all origins (tighten on Day 12)
+   - Define `GET /health` returning `{"status": "healthy", "version": "1.0.0"}`
+   - Define `GET /api/v1/info` returning project name and environment string
 
-#### 1.3 Complete PostgreSQL Schema
-- documents table: file metadata, doc_hash SHA-256 idempotency
-- chunks table: VECTOR(1536) embedding, TSVECTOR sparse index, bounding_box JSONB
-- entity_triples table: GraphRAG subject-predicate-object store
-- query_interactions table: latency, token counts, user feedback
-- eval_scores table: per-query RAGAS metric storage
-- HNSW index with m=16, ef_construction=64 on embedding column
-- GIN index on sparse_tsv for BM25 full-text search
-- RLS enabled on all tenant-scoped tables
+5. **Create `backend/requirements.txt`**. Include: `fastapi>=0.110.0`, `uvicorn[standard]`, `pydantic>=2.6.0`, `pydantic-settings`, `asyncpg`, `sqlalchemy[asyncio]>=2.0`, `redis`, `celery`, `python-jose[cryptography]`, `passlib[bcrypt]`, `tiktoken`, `pytest`, `pytest-asyncio`
 
-#### 1.4 FastAPI Application Bootstrap
-- Async SQLAlchemy engine with asyncpg driver
-- Redis async connection pool
-- Health check endpoint: GET /health
-- System info endpoint: GET /api/v1/info
-- CORS middleware for Next.js origin
+6. **Create `backend/Dockerfile`**. Base image `python:3.11-slim`. Install system deps `build-essential curl`. Copy `requirements.txt`, run `pip install --no-cache-dir -r requirements.txt`. Copy `.`. Expose `8000`. CMD `uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload`
 
-### Day 1 Outcomes
-- Docker Compose starts all services with docker-compose up
-- All 6 tables created in PostgreSQL with proper indexes
-- FastAPI returns 200 on /health
-- pgvector extension confirmed active
+**Test:** Run `docker-compose up`. All four containers must show `healthy` or `running`. Open `http://localhost:8000/health` in browser and confirm `{"status":"healthy"}`. Open `http://localhost:8000/docs` and confirm Swagger UI loads.
 
 ---
 
-## Day 2 — Authentication: JWT Auth, Multi-Tenancy, RBAC & RLS Enforcement
+## Day 2 — Authentication: JWT, Multi-Tenant Users & PostgreSQL RLS Enforcement
 
-### Learning Objectives
-- Understand JWT access token structure (header.payload.signature)
-- Learn PostgreSQL Row-Level Security policy definitions
-- Understand multi-tenant SaaS architecture patterns
-- Implement async middleware for authentication context propagation
+**Goal:** Register, login, and access a protected endpoint using a JWT. Verify RLS blocks cross-tenant data access.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/models/user.py` — SQLAlchemy ORM models for `tenants` and `users`
+- `backend/app/schemas/auth.py` — Pydantic schemas for register, login, token, profile
+- `backend/app/core/security.py` — bcrypt hashing, JWT creation and verification
+- `backend/app/core/dependencies.py` — `get_current_user` FastAPI dependency
+- `backend/app/api/auth.py` — `/register`, `/login`, `/me` router
+- `backend/app/db/session.py` — async SQLAlchemy engine and session factory
+- `backend/tests/test_auth.py` — 6 test cases covering the full auth flow
 
-#### 2.1 User & Tenant Models
-```sql
-CREATE TABLE tenants (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    slug VARCHAR(50) UNIQUE NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
+**Tasks:**
 
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID REFERENCES tenants(id),
-    email TEXT UNIQUE NOT NULL,
-    hashed_password TEXT NOT NULL,
-    roles TEXT[] DEFAULT '{viewer}',
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
+1. **Create `backend/app/db/session.py`**. It must:
+   - Create `async_engine = create_async_engine(settings.DATABASE_URL, echo=False, pool_size=10)`
+   - Define `AsyncSessionLocal = async_sessionmaker(async_engine, expire_on_commit=False)`
+   - Define `async def get_db()` as an async generator yielding a session and closing it on exit
+   - Before yielding the session, execute `SET LOCAL app.current_tenant_id = '<tenant_id>'` so RLS applies
 
-#### 2.2 JWT Authentication Flow
-- POST /api/v1/auth/register → Hash password with bcrypt, create user
-- POST /api/v1/auth/login → Verify password, return JWT with tenant_id, user_id, roles
-- GET /api/v1/auth/me → Decode JWT, return user profile
-- JWT payload: { sub: user_id, tenant_id: uuid, roles: [], exp: timestamp }
-- Token expiry: 24 hours (configurable via env)
+2. **Create `backend/app/core/security.py`**. It must define:
+   - `hash_password(plain: str) -> str` using `passlib.CryptContext(schemes=["bcrypt"])`
+   - `verify_password(plain: str, hashed: str) -> bool`
+   - `create_access_token(data: dict, expires_delta: timedelta) -> str` using `python-jose` and `settings.JWT_SECRET`
+   - `decode_access_token(token: str) -> dict` — returns payload or raises `HTTPException(401)`
 
-#### 2.3 PostgreSQL RLS Policy Implementation
-```sql
--- Automatically filter all queries to current tenant
-CREATE POLICY tenant_isolation ON chunks
-    USING (tenant_id = current_setting('app.current_tenant_id')::UUID);
+3. **Create `backend/app/core/dependencies.py`**. Define `get_current_user(token: str = Depends(oauth2_scheme), db = Depends(get_db))`. It must decode the token, look up the user in the database, and raise `HTTPException(401, "Invalid token")` if user is not found or token is expired.
 
--- FastAPI sets this at query time per request session
-```
+4. **Create `backend/app/api/auth.py`** router with prefix `/api/v1/auth`. It must define:
+   - `POST /register` — accepts `UserCreate(email, password, tenant_name)`. Creates a tenant record then a user record. Returns `UserProfile`.
+   - `POST /login` — accepts `OAuth2PasswordRequestForm`. Verifies email and password. Returns `{"access_token": "...", "token_type": "bearer"}`.
+   - `GET /me` — protected by `get_current_user`. Returns the current user's profile.
 
-#### 2.4 FastAPI Auth Middleware
-- get_current_user dependency from Bearer token
-- Request-scoped tenant ID injection into PostgreSQL session variable
-- Role-Based Access Control: admin, editor, viewer roles
-- Rate limiting: 60 requests/minute per user
+5. **Add RLS policy to `init.sql`** (append if not already there):
+   ```sql
+   CREATE POLICY chunks_tenant_isolation ON chunks
+       USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
+   ```
+   Do the same for `documents`, `entity_triples`, `query_interactions`.
 
-### Day 2 Outcomes
-- Register and login endpoints returning valid JWTs
-- Protected endpoints return 401 without Bearer token
-- RLS policies verified: User A cannot access User B's documents
-- Unit tests: tests/test_auth.py with 5+ test cases
+6. **Create `backend/tests/test_auth.py`**. Test cases must cover:
+   - Register a new user: expect 200 with `email` in response
+   - Login with correct credentials: expect JWT token in response
+   - Login with wrong password: expect 401
+   - Access `GET /me` with valid token: expect user profile
+   - Access `GET /me` without token: expect 401
+   - Access `GET /me` with malformed token: expect 401
+
+**Test:** Run `pytest tests/test_auth.py -v`. All 6 tests pass. Manually register two users with different `tenant_name` values, log in as user A, and confirm that querying `chunks` only returns rows where `tenant_id` matches user A's tenant.
 
 ---
 
 ## Day 3 — Document Ingestion: Vision Parsing, PII Masking & Semantic Chunking
 
-### Learning Objectives
-- Understand layout-aware document parsing vs plain text extraction
-- Learn why naive token chunking destroys semantic continuity
-- Understand PII detection patterns and entity anonymization
-- Learn Anthropic's Contextual Retrieval technique for embedding enrichment
+**Goal:** Upload a PDF, have Celery process it end-to-end in the background, and confirm chunks appear in the database with bounding boxes and contextual summaries.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/api/documents.py` — upload and status endpoints
+- `backend/app/ingestion/parser.py` — Docling-based layout-aware PDF parser
+- `backend/app/ingestion/pii.py` — Microsoft Presidio PII masker
+- `backend/app/ingestion/chunker.py` — sentence-aware semantic chunking
+- `backend/app/ingestion/contextual.py` — LLM-based global summary generator
+- `backend/app/ingestion/pipeline.py` — Celery task wiring all stages together
+- `backend/app/celery_app.py` — Celery app instance connected to Redis broker
+- `backend/tests/test_ingestion.py` — 5 unit tests
 
-#### 3.1 Upload API Endpoint
-```python
-# POST /api/v1/documents/upload
-# Accepts: multipart/form-data (PDF, DOCX, TXT, max 50MB)
-# Returns: document_id, status="processing"
-# SHA-256 hash for idempotency — skip re-upload of identical files
-```
+**Tasks:**
 
-#### 3.2 Layout-Aware Vision Parsing (Docling)
-```python
-from docling.document_converter import DocumentConverter
-converter = DocumentConverter()
-result = converter.convert(file_path)
-# Outputs: structured markdown preserving tables, headers, multi-column
-# Each page → page_number, bounding_box coordinates, text content
-```
+1. **Add to `requirements.txt`**: `docling`, `presidio-analyzer`, `presidio-anonymizer`, `spacy`, `sentence-transformers`
 
-#### 3.3 Microsoft Presidio PII Masking
-```python
-from presidio_analyzer import AnalyzerEngine
-from presidio_anonymizer import AnonymizerEngine
-# Detects: SSN, Credit Cards, Email, Phone, API Keys, Person Names
-# Replaces with: <PERSON>, <EMAIL_ADDRESS>, <PHONE_NUMBER>, etc.
-# Run on every page text before chunking and embedding
-```
+2. **Create `backend/app/celery_app.py`**:
+   ```python
+   from celery import Celery
+   from app.config import settings
+   
+   celery_app = Celery(
+       "rag_worker",
+       broker=settings.REDIS_URL,
+       backend=settings.REDIS_URL,
+       include=["app.ingestion.pipeline"]
+   )
+   celery_app.conf.task_routes = {
+       "app.ingestion.pipeline.process_document": {"queue": "high_priority"}
+   }
+   ```
 
-#### 3.4 Anthropic Contextual Summary Injection
-- Generate 2-sentence global document summary via LLM
-- Prepend to every chunk text before embedding
-- Prevents orphaned chunks from losing global document context
-- Dramatically improves vector retrieval accuracy for ambiguous queries
+3. **Create `backend/app/ingestion/parser.py`**. The function `parse_document(file_path: str) -> list[dict]` must:
+   - Use `docling.DocumentConverter` to convert the file
+   - Return a list of page dicts, each containing: `page_number: int`, `content: str` (plain text with structure preserved), `bounding_boxes: list[dict]` (list of `{text, ymin, xmin, ymax, xmax}` coordinates normalized 0–1)
+   - For scanned PDFs, Docling's built-in OCR pipeline activates automatically
 
-#### 3.5 Semantic Embedding-Shift Chunking
-- Split into sentences using spaCy or regex boundaries
-- Compute sentence embeddings with all-MiniLM-L6-v2
-- Measure cosine distance between consecutive sentences
-- Create chunk boundary when delta_similarity > 0.4 (adaptive threshold)
-- Overlap: carry last 2 sentences of previous chunk into next
-- Max chunk: 512 tokens; min: 64 tokens
+4. **Create `backend/app/ingestion/pii.py`**. The function `mask_pii(text: str) -> str` must:
+   - Initialize `AnalyzerEngine()` and `AnonymizerEngine()` from Presidio
+   - Detect entities: `PERSON`, `EMAIL_ADDRESS`, `PHONE_NUMBER`, `CREDIT_CARD`, `US_SSN`, `NRP`
+   - Replace each detected entity with its type label, e.g., `<PERSON>`, `<EMAIL_ADDRESS>`
+   - Return the anonymized text string
 
-#### 3.6 Celery Async Worker
-- Task: process_document(document_id, tenant_id)
-- Pipeline: Parse → PII Mask → Summarize → Chunk → Embed → Index
-- Update document status at each step: pending → processing → indexed / failed
-- Retry failed tasks up to 3 times with exponential backoff
+5. **Create `backend/app/ingestion/contextual.py`**. The async function `generate_contextual_summary(document_text: str, llm_client) -> str` must:
+   - Send a prompt to the LLM: `"In 2 sentences, summarize what this document is about for retrieval context: {first_500_chars}"`
+   - Return the summary string
+   - This summary is prepended to every chunk before embedding: `f"[Context: {summary}]\n{chunk_text}"`
 
-### Day 3 Outcomes
-- Upload endpoint returns document_id immediately (async processing)
-- Celery worker processes PDF end-to-end in background
-- Chunks stored in DB with bounding_box JSON, contextual_summary, page_number
-- PII correctly masked in stored chunk content
-- Unit tests: tests/test_ingestion.py
+6. **Create `backend/app/ingestion/chunker.py`**. The function `semantic_chunk(text: str, contextual_summary: str, chunk_size: int = 512, overlap: int = 64) -> list[dict]` must:
+   - Split text into sentences (use spaCy `en_core_web_sm` sentencizer or regex fallback)
+   - Prepend `[Context: {contextual_summary}]` to every chunk
+   - Slide a window of sentences, enforcing `chunk_size` token limit counted by tiktoken `cl100k_base`
+   - Overlap by carrying the last 2 sentences of the previous window into the next
+   - Return list of dicts: `{chunk_index, content, token_count, contextual_summary}`
 
----
+7. **Create `backend/app/ingestion/pipeline.py`**. The Celery task `@celery_app.task process_document(document_id, tenant_id, file_path)` must:
+   - Step 1: Update `documents.status = 'processing'`
+   - Step 2: Call `parser.parse_document(file_path)` — get pages with bounding boxes
+   - Step 3: For each page, call `pii.mask_pii(page.content)`
+   - Step 4: Call `contextual.generate_contextual_summary(all_text)`
+   - Step 5: Call `chunker.semantic_chunk(masked_text, summary)`
+   - Step 6: For each chunk, generate embedding (Day 4 will add this — insert `None` for now)
+   - Step 7: Bulk insert chunk rows into `chunks` table with `bounding_box`, `contextual_summary`, `page_number`
+   - Step 8: Update `documents.status = 'indexed'`
+   - On any exception: update `documents.status = 'failed'`, log the error, re-raise with retry
 
-## Day 4 — Vector Indexing: pgvector HNSW, BM25 TSVector & Celery Optimization
+8. **Create `backend/app/api/documents.py`** router with prefix `/api/v1/documents`. Define:
+   - `POST /upload` — accepts `UploadFile`. Computes SHA-256 hash. Rejects if `doc_hash` already exists. Saves file to `storage/uploads/`. Creates `documents` record. Enqueues `process_document` Celery task. Returns `{document_id, status: "processing"}` immediately.
+   - `GET /{document_id}` — returns document status, filename, total_pages, and chunk count
 
-### Learning Objectives
-- Understand HNSW index parameters (m, ef_construction, ef_search)
-- Learn BM25 Okapi TF-IDF scoring and PostgreSQL tsvector internals
-- Understand embedding model selection trade-offs
-- Learn Celery task chaining and priority queues
-
-### Implementation Tasks
-
-#### 4.1 Dense Vector Embedding Generation
-```python
-# Option A: OpenAI text-embedding-3-small → 1536 dims
-# Option B: sentence-transformers/all-mpnet-base-v2 → 768 dims, free/local
-async def generate_embedding(text: str) -> list[float]:
-    # Batch embedding: 50 chunks per API call
-    # Cache in Redis: key=sha256(text), TTL=30 days
-```
-
-#### 4.2 HNSW Index Optimization
-```sql
-CREATE INDEX idx_chunks_hnsw ON chunks
-USING hnsw (embedding vector_cosine_ops)
-WITH (m = 16, ef_construction = 64);
-
--- At query time:
-SET hnsw.ef_search = 100; -- Higher = better recall, slower
-```
-
-#### 4.3 BM25 Sparse Index Generation
-```sql
-UPDATE chunks
-SET sparse_tsv = to_tsvector('english', content)
-WHERE sparse_tsv IS NULL;
-
--- BM25 Query:
-SELECT id, ts_rank_cd(sparse_tsv, query) AS bm25_score
-FROM chunks, plainto_tsquery('english', $1) query
-WHERE sparse_tsv @@ query AND tenant_id = $2
-ORDER BY bm25_score DESC LIMIT 20;
-```
-
-#### 4.4 Celery Optimization
-- high_priority queue: document ingestion tasks
-- low_priority queue: batch re-indexing and eval tasks
-- Concurrency: 4 workers per queue
-- Flower web UI monitoring on port 5555
-- Dead Letter Queue: failed tasks logged to failed_tasks table
-
-### Day 4 Outcomes
-- Chunks with embeddings stored and HNSW index verified
-- BM25 tsvector populated and GIN index confirmed
-- Celery Flower dashboard at localhost:5555
-- Embedding cache hitting on re-upload test
-- GET /api/v1/documents/{id} returns status and chunk count
+**Test:** Start the stack with `docker-compose up`. Upload a sample PDF to `POST /api/v1/documents/upload`. Poll `GET /api/v1/documents/{id}` until status is `indexed`. Query the `chunks` table via psql and confirm rows have non-null `content`, `contextual_summary`, and `bounding_box` fields.
 
 ---
 
-## Day 5 — Knowledge Graph: GraphRAG Entity Extraction & Triple Storage
+## Day 4 — Vector Indexing: Embeddings, pgvector HNSW & Celery Task Optimization
 
-### Learning Objectives
-- Understand Knowledge Graph concepts: nodes, edges, triples, traversal
-- Learn why vector search fails at multi-hop relational queries
-- Understand Named Entity Recognition (NER) pipelines
-- Learn graph traversal query patterns with recursive CTEs
+**Goal:** Every chunk in the database has a non-null embedding vector. Vector similarity search returns relevant results in under 100ms.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/ingestion/embedder.py` — embedding generation with Redis cache
+- Updated `backend/app/ingestion/pipeline.py` — embedding step wired into pipeline
+- `backend/app/retrieval/vector_search.py` — pgvector cosine similarity query
+- `backend/app/retrieval/bm25_search.py` — BM25 TSVector full-text query
+- `backend/tests/test_search.py` — 4 unit tests
 
-#### 5.1 Entity & Relationship Extraction
-```python
-EXTRACTION_PROMPT = """
-Extract entities and relationships from the following text.
-Return as JSON array: [{"subject": "", "predicate": "", "object": ""}]
-Text: {chunk_content}
-"""
-# Example output:
-# [{"subject": "John Smith", "predicate": "works_in", "object": "London Office"},
-#  {"subject": "London Office", "predicate": "follows_policy", "object": "UK Leave Policy"}]
-```
+**Tasks:**
 
-#### 5.2 Recursive CTE Graph Traversal
-```sql
-WITH RECURSIVE graph_traverse AS (
-    SELECT subject, predicate, object, source_chunk_id, 1 AS depth
-    FROM entity_triples
-    WHERE subject ILIKE $1 AND tenant_id = $2
+1. **Create `backend/app/ingestion/embedder.py`**. The async function `embed_text(text: str, redis_client) -> list[float]` must:
+   - Compute `cache_key = f"emb:{hashlib.sha256(text.encode()).hexdigest()[:16]}"`
+   - Check Redis for cached vector: `await redis_client.get(cache_key)`
+   - On cache miss: call OpenAI `text-embedding-3-small` (or local `sentence-transformers/all-mpnet-base-v2`)
+   - Store result in Redis with `TTL = 2592000` (30 days)
+   - Return the embedding as `list[float]`
+   - Batch variant: `embed_batch(texts: list[str]) -> list[list[float]]` — submit all texts in a single API call
 
-    UNION ALL
+2. **Update `backend/app/ingestion/pipeline.py`**. In the Celery task, after chunking:
+   - Call `embed_batch([c["content"] for c in chunks])` to get all embeddings in one API call
+   - Assign each embedding to its chunk before the bulk INSERT
+   - Also generate and store `sparse_tsv = to_tsvector('english', content)` via a raw SQL update after insert
 
-    SELECT e.subject, e.predicate, e.object, e.source_chunk_id, g.depth + 1
-    FROM entity_triples e
-    JOIN graph_traverse g ON e.subject = g.object
-    WHERE g.depth < 3 AND e.tenant_id = $2
-)
-SELECT DISTINCT source_chunk_id FROM graph_traverse;
-```
+3. **Create `backend/app/retrieval/vector_search.py`**. The async function `vector_search(embedding: list[float], tenant_id: str, top_k: int = 20) -> list[dict]` must execute:
+   ```sql
+   SET hnsw.ef_search = 100;
+   SELECT id, document_id, content, contextual_summary, page_number, bounding_box,
+          1 - (embedding <=> $1::vector) AS similarity_score
+   FROM chunks
+   WHERE tenant_id = $2
+   ORDER BY embedding <=> $1::vector
+   LIMIT $3;
+   ```
+   Return list of chunk dicts with `id`, `content`, `similarity_score`, `bounding_box`.
 
-#### 5.3 Multi-Hop Query Example
-- Query: "What leave policy applies to engineers hired before 2022 in London?"
-- Entity extraction: London, engineers, 2022
-- Graph traversal: London Office → follows_policy → UK Leave Policy
-- Fetches relevant policy chunk via relationship traversal
+4. **Create `backend/app/retrieval/bm25_search.py`**. The async function `bm25_search(query: str, tenant_id: str, top_k: int = 20) -> list[dict]` must execute:
+   ```sql
+   SELECT id, document_id, content, contextual_summary, page_number, bounding_box,
+          ts_rank_cd(sparse_tsv, query) AS bm25_score
+   FROM chunks, plainto_tsquery('english', $1) AS query
+   WHERE sparse_tsv @@ query AND tenant_id = $2
+   ORDER BY bm25_score DESC
+   LIMIT $3;
+   ```
 
-### Day 5 Outcomes
-- Entity extraction runs automatically during chunk ingestion
-- Recursive CTE graph traversal returns relevant chunks for relational queries
-- /api/v1/retrieval/graph?query=... endpoint working
-- Unit tests: tests/test_graph.py
+5. **Verify HNSW index**: after inserting 1000+ chunks, run `EXPLAIN ANALYZE` on the vector query and confirm `Index Scan using idx_chunks_hnsw` appears in the plan.
 
----
-
-## Day 6 — Retrieval Engine: RRF Fusion, ColBERT ONNX Reranker & Contextual Compression
-
-### Learning Objectives
-- Deeply understand RRF fusion mathematics
-- Understand bi-encoder vs cross-encoder vs late-interaction trade-offs
-- Learn ONNX model export and Runtime execution provider configuration
-- Understand contextual compression and "Lost in the Middle" LLM failure
-
-### Implementation Tasks
-
-#### 6.1 Tri-Hybrid Parallel Retrieval
-```python
-import asyncio
-
-async def tri_hybrid_retrieve(query, embedding, tenant_id):
-    bm25_task = asyncio.create_task(bm25_search(query, tenant_id, top_k=20))
-    vector_task = asyncio.create_task(vector_search(embedding, tenant_id, top_k=20))
-    graph_task = asyncio.create_task(graph_retrieval(query, tenant_id, top_k=15))
-
-    bm25, vector, graph = await asyncio.gather(bm25_task, vector_task, graph_task)
-    return {"bm25": bm25, "vector": vector, "graph": graph}
-```
-
-#### 6.2 Reciprocal Rank Fusion (RRF)
-```python
-# RRF(d) = sum( 1 / (k + rank_i(d)) ), k=60
-def reciprocal_rank_fusion(result_sets: dict, k: int = 60) -> list:
-    scores = {}
-    for method, results in result_sets.items():
-        for rank, chunk in enumerate(results):
-            cid = str(chunk["id"])
-            scores[cid] = scores.get(cid, 0) + (1.0 / (k + rank + 1))
-    return sorted(scores.items(), key=lambda x: x[1], reverse=True)
-```
-
-#### 6.3 ONNX-Accelerated Cross-Encoder Reranker
-```python
-from optimum.onnxruntime import ORTModelForSequenceClassification
-# Export bge-reranker-large or ms-marco-MiniLM-L-6-v2 to ONNX
-# Runtime inference: 3-5x faster than PyTorch CPU
-# Target: rerank top-40 candidates in <35ms
-```
-
-#### 6.4 ColBERT Late Interaction Scoring
-```
-S(q,d) = sum_i( max_j( E_q_i · E_d_j^T ) )
-Token-level MaxSim: superior to bi-encoder for precision retrieval
-```
-
-#### 6.5 LongLLMLingua Contextual Compression
-```python
-from llmlingua import PromptCompressor
-# Compress top-5 chunks before LLM injection
-# 2000 tokens → 1000 tokens (50% compression)
-# Prevents "Lost in the Middle" LLM degradation
-```
-
-### Day 6 Outcomes
-- Full tri-hybrid retrieval working end-to-end in <150ms
-- RRF fusion outperforming single-source retrieval in precision tests
-- ONNX reranker serving in <35ms verified
-- LLMLingua compressing context by 40-50%
-- Unit tests: tests/test_retrieval.py
+**Test:** Insert 500 test chunks with known content. Call `vector_search("annual leave policy", tenant_id)` and confirm the top result has a `similarity_score > 0.75`. Call `bm25_search("dental coverage", tenant_id)` and confirm the top result contains "dental". Both queries must complete in under 100ms (measure with `time.perf_counter()`).
 
 ---
 
-## Day 7 — Agentic Query Layer: HyDE, Query Expansion & Redis Semantic Cache
+## Day 5 — Knowledge Graph: Entity Extraction, Triple Storage & Multi-Hop Traversal
 
-### Learning Objectives
-- Understand why user queries are sub-optimal for vector retrieval
-- Learn HyDE (Hypothetical Document Embeddings) technique
-- Understand semantic caching architecture and similarity thresholds
-- Learn how to build an LLM-based intent classifier for query routing
+**Goal:** GraphRAG retrieval returns relevant chunks for a multi-hop query that vector search alone would miss.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/ingestion/graph_extractor.py` — LLM-based triple extraction
+- `backend/app/retrieval/graph_search.py` — recursive CTE multi-hop traversal
+- Updated `backend/app/ingestion/pipeline.py` — graph extraction wired after chunking
+- `backend/tests/test_graph.py` — 3 unit tests
 
-#### 7.1 Redis Semantic Cache
-```python
-class SemanticCache:
-    # Check cached query vectors via cosine similarity > 0.96 threshold
-    # Cache hit response: <15ms
-    # Cache store: hash=sha256(normalized_query), TTL=3600s
-```
+**Tasks:**
 
-#### 7.2 Hypothetical Document Embedding (HyDE)
-```python
-async def hyde_generate(query: str) -> list[float]:
-    hypothetical_doc = await llm.generate(
-        f"Write a 2-paragraph excerpt answering: '{query}'"
-    )
-    # Embed the hypothetical document, not the raw question
-    # The answer vector is closer to real document embeddings
-    return await generate_embedding(hypothetical_doc)
-```
+1. **Create `backend/app/ingestion/graph_extractor.py`**. The async function `extract_triples(chunk_id: str, chunk_content: str, tenant_id: str, llm_client, db) -> None` must:
+   - Send this prompt to the LLM:
+     ```
+     Extract all entity relationships from the text below.
+     Return ONLY a valid JSON array with this exact structure, no markdown:
+     [{"subject": "Entity A", "predicate": "relationship_type", "object": "Entity B"}]
+     Text: {chunk_content}
+     ```
+   - Parse the JSON response. Skip if JSON is malformed — never crash.
+   - Normalize all entity strings to title case, strip extra whitespace
+   - Bulk INSERT valid triples into `entity_triples` with `source_chunk_id = chunk_id` and `tenant_id`
+   - Only run extraction on chunks that contain at least one named entity (pre-filter with spaCy NER to save LLM calls)
 
-#### 7.3 Multi-Query Expansion
-```python
-# Generate 3 semantic variations in parallel
-# Run parallel vector lookups for each variation
-# Merge via RRF for maximum coverage
-```
+2. **Update `backend/app/ingestion/pipeline.py`**. After the chunk embedding step, for each chunk, call `extract_triples()` asynchronously. Use `asyncio.gather()` to run extractions in parallel.
 
-#### 7.4 Agentic Strategy Classifier
-```
-FACTUAL_VECTOR   → Tri-hybrid vector search
-MULTI_HOP_GRAPH  → GraphRAG + vector search
-ANALYTICAL_SQL   → SQL query against dbt tables
-GREETING_DIRECT  → Direct LLM response (skip retrieval)
-```
+3. **Create `backend/app/retrieval/graph_search.py`**. The async function `graph_search(query: str, tenant_id: str, max_hops: int = 3, top_k: int = 15) -> list[dict]` must:
+   - Extract entities from the query using spaCy NER
+   - For each extracted entity, execute the recursive CTE:
+     ```sql
+     WITH RECURSIVE graph_traverse AS (
+         SELECT subject, predicate, object, source_chunk_id, 1 AS depth
+         FROM entity_triples
+         WHERE (subject ILIKE $1 OR object ILIKE $1) AND tenant_id = $2
+     
+         UNION ALL
+     
+         SELECT e.subject, e.predicate, e.object, e.source_chunk_id, g.depth + 1
+         FROM entity_triples e
+         JOIN graph_traverse g ON e.subject = g.object
+         WHERE g.depth < $3 AND e.tenant_id = $2
+     )
+     SELECT DISTINCT c.id, c.content, c.bounding_box, c.page_number
+     FROM graph_traverse gt
+     JOIN chunks c ON c.id = gt.source_chunk_id
+     LIMIT $4;
+     ```
+   - Merge and deduplicate results across all entities
+   - Return list of chunk dicts compatible with vector and BM25 result format
 
-#### 7.5 Full Query Pre-Processing Pipeline
-```
-Query → Cache Check → (MISS) → Classify Route → Expand + HyDE
-     → Parallel Retrieval → RRF → Reranker → Compress → Generate
-```
-
-### Day 7 Outcomes
-- Semantic cache returning responses in <15ms on similarity match
-- HyDE improving retrieval recall verified by recall@k test
-- Query router correctly classifying 5 test cases per category
-- Full agentic pipeline: query → route → retrieve → compress in <200ms
+**Test:** Ingest a document containing sentences like "Alice manages the London Office. The London Office follows the UK Leave Policy." Then query `graph_search("What policy does Alice's team follow?")`. Confirm the UK Leave Policy chunk is returned. Verify with `pytest tests/test_graph.py -v`, all 3 tests pass.
 
 ---
 
-## Day 8 — LLM Generation: Structured Streaming, Citations & SSE
+## Day 6 — Retrieval Engine: RRF Fusion, ONNX Reranker & LLMLingua Compression
 
-### Learning Objectives
-- Understand Server-Sent Events (SSE) protocol and streaming architecture
-- Learn structured LLM output generation with JSON schema enforcement
-- Understand citation grounding and hallucination mitigation techniques
-- Learn how to include metadata in SSE token streams
+**Goal:** A single `/api/v1/retrieval/search` call runs all three retrieval methods in parallel, fuses them, reranks in under 150ms total, and returns top-5 compressed chunks.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/retrieval/fusion.py` — Reciprocal Rank Fusion implementation
+- `backend/app/retrieval/reranker.py` — ONNX cross-encoder reranker
+- `backend/app/retrieval/compressor.py` — LLMLingua contextual compression
+- `backend/app/retrieval/engine.py` — orchestrator combining all retrieval stages
+- `backend/app/api/retrieval.py` — `/search` API endpoint
+- `backend/tests/test_retrieval_pipeline.py` — 5 integration tests
 
-#### 8.1 Grounding Prompt Template
-```python
-SYSTEM_PROMPT = """
-You are a precise document Q&A assistant. Answer ONLY based on provided context.
-If information is insufficient, say "I don't have enough information in the provided documents."
-NEVER fabricate facts. Every factual claim must be sourced from context.
-Citation format: [SOURCE:chunk_id:page_number]
-"""
-```
+**Tasks:**
 
-#### 8.2 Structured SSE Response Schema
-```python
-class SSEEvent(BaseModel):
-    type: Literal["token", "citation", "metadata", "done", "error"]
-    content: str | None = None
+1. **Create `backend/app/retrieval/fusion.py`**. The function `reciprocal_rank_fusion(result_sets: dict[str, list[dict]], k: int = 60, top_n: int = 50) -> list[dict]` must:
+   - Accept a dict with keys `"bm25"`, `"vector"`, `"graph"` each containing a ranked list of chunk dicts
+   - Compute `score[chunk_id] += 1.0 / (k + rank + 1)` for every chunk in every list
+   - Merge chunk metadata from the first time each chunk ID is seen
+   - Sort by score descending, return top `top_n` as list of dicts with added `rrf_score` field
 
-class CitationBlock(BaseModel):
-    chunk_id: str
-    document_id: str
-    page_number: int
-    bounding_box: list[float]  # [ymin, xmin, ymax, xmax] normalized 0-1
-    source_filename: str
-    excerpt: str
+2. **Create `backend/app/retrieval/reranker.py`**. The class `CrossEncoderReranker` must:
+   - On `__init__`: load `cross-encoder/ms-marco-MiniLM-L-6-v2` as ONNX model using `optimum.onnxruntime.ORTModelForSequenceClassification` (export once on first run)
+   - Method `rerank(query: str, candidates: list[dict], top_k: int = 5) -> list[dict]`:
+     - Build input pairs `[(query, chunk["content"]) for chunk in candidates[:40]]`
+     - Run inference in batch via ONNX Runtime
+     - Sort by logit score descending
+     - Return top `top_k` with added `rerank_score` field
+   - Fallback: if ONNX model is unavailable, sort by `rrf_score` directly and log a warning
 
-class ResponseMetadata(BaseModel):
-    total_tokens: int
-    ttft_ms: int
-    total_latency_ms: int
-    route_used: str
-    chunks_retrieved: int
-```
+3. **Create `backend/app/retrieval/compressor.py`**. The function `compress_context(chunks: list[dict], query: str, ratio: float = 0.5) -> list[dict]` must:
+   - Add to requirements: `llmlingua`
+   - Initialize `PromptCompressor("microsoft/llmlingua-2-bert-base-multilingual-cased-meetingbank")`
+   - Concatenate chunk contents into a single context string
+   - Call `compressor.compress_prompt(context, question=query, ratio=ratio)`
+   - Map compressed segments back to source chunk IDs (preserve `bounding_box` metadata)
+   - Return chunks with updated compressed `content` field
 
-#### 8.3 FastAPI SSE Streaming Endpoint
-```python
-@router.post("/api/v1/query")
-async def query_endpoint(request: QueryRequest, current_user: User = Depends(get_current_user)):
-    async def generate():
-        async for chunk in llm.stream(prompt):
-            yield {"data": SSEEvent(type="token", content=chunk).json()}
-        for citation in extracted_citations:
-            yield {"data": SSEEvent(type="citation", citation=citation).json()}
-        yield {"data": SSEEvent(type="done", metadata=build_metadata(...)).json()}
-    return EventSourceResponse(generate())
-```
+4. **Create `backend/app/retrieval/engine.py`**. The async function `retrieve(query: str, tenant_id: str) -> list[dict]` must:
+   - Step 1: Embed the query via `embedder.embed_text(query)`
+   - Step 2: Fire BM25, vector, and graph searches in parallel using `asyncio.gather()`
+   - Step 3: Fuse results via `fusion.reciprocal_rank_fusion()`
+   - Step 4: Rerank top-40 via `reranker.rerank()`
+   - Step 5: Compress top-5 via `compressor.compress_context()`
+   - Return final list of 5 chunks with `rrf_score`, `rerank_score`, `bounding_box`, `page_number`
+   - Measure and log total latency at each stage
 
-#### 8.4 User Feedback Endpoint
-```python
-# POST /api/v1/query/{interaction_id}/feedback
-# Body: {"feedback": 1}  # 1=thumbs up, -1=thumbs down
-```
+5. **Create `backend/app/api/retrieval.py`**. Define `POST /api/v1/retrieval/search` accepting `{query: str}`. Call `engine.retrieve()`. Return the top-5 chunks as JSON.
 
-### Day 8 Outcomes
-- SSE streaming endpoint responding with structured JSON events
-- Citation blocks with bounding box coordinates in every response
-- Interaction log confirming all queries stored to DB
-- Hallucination guardrail refusing out-of-context questions
-- Unit tests: tests/test_generation.py
+**Test:** Run `pytest tests/test_retrieval_pipeline.py -v`. Measure end-to-end retrieval latency — it must be under 150ms excluding embedding API call. Confirm the chunk that appears in all three retrieval methods gets the highest RRF score.
 
 ---
 
-## Day 9 — Next.js 14 Frontend: Streaming Chat UI, PDF Viewer & Citation Highlighting
+## Day 7 — Agentic Query Layer: Semantic Cache, HyDE, Query Expansion & Strategy Router
 
-### Learning Objectives
-- Understand Next.js 14 App Router patterns (server vs client components)
-- Learn ReadableStream and EventSource API for consuming SSE in browser
-- Learn react-pdf rendering and canvas overlay for bounding box highlights
-- Understand optimistic UI updates for streaming responses
+**Goal:** Semantically identical queries return cached answers in under 15ms. Novel queries are automatically routed to the correct retrieval strategy.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/agentic/cache.py` — Redis semantic vector cache
+- `backend/app/agentic/hyde.py` — Hypothetical Document Embedding generator
+- `backend/app/agentic/expander.py` — multi-query expansion
+- `backend/app/agentic/router.py` — LLM-based strategy classifier
+- `backend/app/agentic/pipeline.py` — full pre-retrieval orchestrator
+- `backend/tests/test_agentic.py` — 4 unit tests
 
-#### 9.1 Application Structure
-```
-app/
-├── layout.tsx          # Root layout with sidebar
-├── page.tsx            # Landing/dashboard
-├── (auth)/login/page.tsx
-├── (auth)/register/page.tsx
-├── chat/page.tsx       # Main streaming chat interface
-├── documents/page.tsx  # Document library + upload
-└── dashboard/page.tsx  # Analytics overview
-```
+**Tasks:**
 
-#### 9.2 SSE Streaming Chat Component
-```typescript
-async function* streamSSEResponse(query: string, token: string) {
-    const response = await fetch('/api/v1/query', {
-        method: 'POST',
-        body: JSON.stringify({ query }),
-        headers: { Authorization: `Bearer ${token}` }
-    });
-    const reader = response.body!.getReader();
-    // Decode chunks → parse SSEEvent JSON → yield events
-}
-```
+1. **Create `backend/app/agentic/cache.py`**. Class `SemanticCache` with:
+   - `__init__(redis_client, threshold: float = 0.96)`
+   - `async get(query_embedding: list[float]) -> str | None`:
+     - Fetch all cached entries from Redis hash `rag:cache:entries`
+     - Compute cosine similarity between `query_embedding` and each cached embedding using numpy
+     - If max similarity >= `self.threshold`, return the cached answer string
+     - Otherwise return `None`
+   - `async set(query: str, embedding: list[float], answer: str, ttl: int = 3600)`:
+     - Store `{embedding: list, answer: str}` as JSON in Redis with key `rag:cache:{sha256(query)[:12]}` and given TTL
 
-#### 9.3 PDF Viewer with Bounding Box Highlights
-```typescript
-// react-pdf canvas + absolute-positioned highlight overlays
-// coordinates from citation bounding_box [ymin, xmin, ymax, xmax]
-// Animate highlight opacity: 0 → 0.4 on citation received
-function BoundingBoxHighlight({ bbox, pageHeight, pageWidth }) {
-    const [ymin, xmin, ymax, xmax] = bbox;
-    // CSS absolute positioning with yellow translucent background
-}
-```
+2. **Create `backend/app/agentic/hyde.py`**. Async function `generate_hyde_embedding(query: str, llm_client, embedder) -> list[float]` must:
+   - Send prompt: `"Write a 3-sentence document excerpt that would directly answer this question: {query}"`
+   - Embed the hypothetical answer text (not the query text)
+   - Return the embedding vector
 
-#### 9.4 Design System
-- Dark mode by default with glassmorphism cards
-- Color palette: #0A0A0F (bg), #6366F1 (indigo accent), #A78BFA (violet)
-- Google Fonts: Inter (body) + Outfit (headings)
-- Framer Motion for page transitions and chat message animations
+3. **Create `backend/app/agentic/expander.py`**. Async function `expand_query(query: str, llm_client) -> list[str]` must:
+   - Send prompt: `"Generate 3 alternative phrasings of this search query for a document retrieval system. Return as a JSON array only: {query}"`
+   - Parse JSON response
+   - Return `[query] + alternatives` (original always first)
+   - On parse failure, return `[query]` and log warning
 
-### Day 9 Outcomes
-- Chat UI streams LLM responses token-by-token in real time
-- PDF viewer highlights cited text with yellow bounding boxes
-- Document upload with real-time status progress bar
-- Responsive layout on desktop and tablet
-- Authentication flow: login → dashboard → chat
+4. **Create `backend/app/agentic/router.py`**. Async function `classify_route(query: str, llm_client) -> str` must:
+   - Send a few-shot classification prompt listing these routes with examples:
+     - `FACTUAL_VECTOR` — "What does the refund policy say?" → single-document factual lookup
+     - `MULTI_HOP_GRAPH` — "What rules apply to employees in London hired before 2022?" → requires entity traversal
+     - `ANALYTICAL_SQL` — "How many queries were made last week?" → requires aggregation over structured data
+     - `GREETING_DIRECT` — "Hello, how are you?" → no retrieval needed
+   - Return exactly one of the four string labels
+   - Default to `FACTUAL_VECTOR` on failure
 
----
+5. **Create `backend/app/agentic/pipeline.py`**. Async function `process_query(query: str, tenant_id: str, user_id: str) -> dict` must:
+   ```
+   1. Generate query embedding
+   2. Check SemanticCache → if HIT: return {answer, source: "cache", latency_ms}
+   3. Classify route via router.classify_route()
+   4. If route == GREETING_DIRECT: return direct LLM response, skip retrieval
+   5. Expand query via expander.expand_query()
+   6. Generate HyDE embedding in parallel with query expansion
+   7. Run retrieval.engine.retrieve() with expanded queries and HyDE embedding
+   8. Return {chunks, route, query_variants, hyde_used: true/false}
+   ```
 
-## Day 10 — Observability: OpenTelemetry, LangFuse Tracing & Admin Dashboard
-
-### Learning Objectives
-- Understand distributed tracing: spans, traces, context propagation
-- Learn OpenTelemetry instrumentation patterns for FastAPI
-- Understand time-to-first-token (TTFT) measurement importance
-- Learn how to detect retrieval regressions using trace comparison
-
-### Implementation Tasks
-
-#### 10.1 OpenTelemetry Setup
-```python
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-# Auto-instrument FastAPI, asyncpg, Redis
-# Export traces to Jaeger or LangFuse collector
-```
-
-#### 10.2 Per-Component Span Instrumentation
-```python
-with tracer.start_as_current_span("query.cache_check") as span:
-    span.set_attribute("cache.hit", cache_result is not None)
-
-with tracer.start_as_current_span("retrieval.bm25"): ...
-with tracer.start_as_current_span("retrieval.vector"): ...
-with tracer.start_as_current_span("retrieval.graph"): ...
-with tracer.start_as_current_span("retrieval.rrf_fusion"): ...
-with tracer.start_as_current_span("retrieval.reranker"): ...
-with tracer.start_as_current_span("query.generation") as span:
-    span.set_attribute("llm.prompt_tokens", prompt_tokens)
-    span.set_attribute("llm.ttft_ms", ttft_ms)
-```
-
-#### 10.3 Key Production Metrics
-
-| Metric | Target | Alert Threshold |
-|:---|:---:|:---:|
-| Time to First Token (TTFT) | <200ms | >500ms |
-| Full Response Latency | <2000ms | >5000ms |
-| Cache Hit Rate | >30% | <10% |
-| Retrieval Precision@5 | >0.80 | <0.65 |
-| Hallucination Rate | <5% | >10% |
-| Failed Ingestion Rate | <1% | >5% |
-
-### Day 10 Outcomes
-- Every query generates full OpenTelemetry trace visible in LangFuse
-- TTFT and full latency tracked per interaction
-- Admin dashboard displaying live system metrics and token costs
-- Alert configured for TTFT > 500ms
+**Test:** Run `pytest tests/test_agentic.py -v`. Manually test cache: send the same query twice, confirm second response has `source: "cache"` and latency under 15ms. Test router: send "What is Alice's department?" and confirm route is `MULTI_HOP_GRAPH`.
 
 ---
 
-## Day 11 — RAGAS CI/CD Eval: Golden Dataset, GitHub Actions & Hard-Negative Mining
+## Day 8 — LLM Generation: Grounded SSE Streaming & Bounding-Box Citation Engine
 
-### Learning Objectives
-- Understand LLM-as-a-judge evaluation methodology and limitations
-- Learn distinction between deterministic micro-evals and probabilistic macro-evals
-- Understand hard-negative example mining for continuous dataset improvement
-- Learn GitHub Actions workflow design for ML evaluation pipelines
+**Goal:** A query returns a streaming response where every factual claim is cited with chunk ID, page number, and bounding box coordinates in real time.
 
-### Implementation Tasks
+**Deliverables:**
+- `backend/app/generation/prompt_builder.py` — context assembly and prompt construction
+- `backend/app/generation/streamer.py` — SSE token streamer with citation extraction
+- `backend/app/generation/citation_parser.py` — extracts `[SOURCE:chunk_id:page]` tags from stream
+- `backend/app/api/query.py` — `POST /api/v1/query` SSE endpoint
+- `backend/tests/test_generation.py` — 4 unit tests
 
-#### 11.1 Golden Evaluation Dataset (200+ Q&A pairs)
-```json
-[
-  {
-    "id": "eval_001",
-    "query": "What is the annual leave entitlement for full-time employees?",
-    "ground_truth": "Full-time employees receive 25 days of annual leave per year.",
-    "relevant_chunk_ids": ["chunk_abc123"],
-    "difficulty": "easy",
-    "category": "HR_Policy"
-  }
-]
-// 4 categories: HR_Policy, Technical_Docs, Financial_Reports, Legal_Contracts
-// 3 difficulty levels: easy, medium, hard (multi-hop)
-```
+**Tasks:**
 
-#### 11.2 RAGAS Evaluation Metrics
-- **Faithfulness**: Claims in answer verified against context (target >0.90)
-- **Answer Relevancy**: Answer addresses the actual question (target >0.85)
-- **Context Precision**: Relevant chunks in top positions (target >0.80)
-- **Context Recall**: All relevant chunks retrieved (target >0.75)
+1. **Create `backend/app/generation/prompt_builder.py`**. Function `build_prompt(query: str, chunks: list[dict]) -> tuple[str, str]` must:
+   - System prompt (static string):
+     ```
+     You are a precise document Q&A assistant. Answer ONLY based on the provided context.
+     If the context does not contain enough information to answer, say exactly:
+     "I don't have enough information in the provided documents to answer this question."
+     Never fabricate facts. After every sentence containing a factual claim, append a citation
+     in this exact format: [SOURCE:{chunk_id}:{page_number}]
+     ```
+   - User prompt template: format each chunk as `--- Chunk {i+1} (chunk_id: {id}, page: {page_number}) ---\n{content}\n`
+   - Return `(system_prompt, user_prompt)`
 
-#### 11.3 Tiered GitHub Actions CI/CD
+2. **Create `backend/app/generation/citation_parser.py`**. Function `extract_citations(text: str, chunks: list[dict]) -> list[dict]` must:
+   - Find all `[SOURCE:chunk_id:page_number]` patterns via regex
+   - For each match, look up `chunk_id` in the `chunks` list
+   - Return list of `CitationBlock` dicts: `{chunk_id, document_id, page_number, bounding_box, source_filename, excerpt: content[:200]}`
 
-**Fast PR Check (runs in <60 seconds):**
-```yaml
-name: Fast Eval - PR Check
-on: [pull_request]
-jobs:
-  fast-eval:
-    steps:
-      - run: pytest tests/ -v
-      - run: python scripts/eval_recall.py --min-recall 0.75
-      - run: python scripts/eval_latency.py --max-ttft-ms 500
-      - run: python scripts/eval_citations.py
-```
+3. **Create `backend/app/generation/streamer.py`**. Async generator `stream_response(query: str, chunks: list[dict], llm_client) -> AsyncGenerator[dict, None]` must:
+   - Record `start_time = time.perf_counter()`
+   - Stream tokens from the LLM using `async for token in llm_client.stream(system, user_prompt)`
+   - Yield each token as `{"type": "token", "content": token_text}`
+   - Record TTFT on first token yielded
+   - After stream completes, parse citations from full accumulated text
+   - Yield each citation as `{"type": "citation", "citation": CitationBlock}`
+   - Yield final event: `{"type": "done", "metadata": {ttft_ms, total_latency_ms, prompt_tokens, completion_tokens, route_used, chunks_retrieved}}`
 
-**Nightly Full RAGAS Eval (runs at 2 AM UTC):**
-```yaml
-name: Nightly RAGAS Full Eval
-on:
-  schedule:
-    - cron: '0 2 * * *'
-jobs:
-  ragas-eval:
-    steps:
-      - run: python scripts/run_ragas_eval.py --dataset golden_dataset.json
-      - run: python scripts/assert_threshold.py --metric faithfulness --min 0.90
-      - run: python scripts/upload_eval_results.py
-```
+4. **Create `backend/app/api/query.py`**. The endpoint `POST /api/v1/query` must:
+   - Accept `QueryRequest(query: str, session_id: UUID | None)`
+   - Call `agentic.pipeline.process_query()` to get chunks and route
+   - If answer came from cache, return it as a single SSE `done` event immediately
+   - Otherwise, call `generation.streamer.stream_response()` and pipe through `EventSourceResponse`
+   - After stream completes, insert a row into `query_interactions` with all metadata
+   - Feedback endpoint: `POST /api/v1/query/{interaction_id}/feedback` accepts `{"feedback": 1}` or `{"feedback": -1}` and updates `user_feedback` field
 
-#### 11.4 Hard-Negative Mining Automation
-```python
-# Runs every 6 hours via Celery periodic task
-async def hard_negative_mining_worker():
-    # 1. Fetch interactions with user_feedback = -1 (thumbs down)
-    # 2. LLM diagnoses retrieval/generation failure
-    # 3. LLM generates corrected ground truth
-    # 4. Append to golden_dataset.json with failure_mode tag
-    #    Categories: retrieval_fail, hallucination, context_loss
-```
+**Test:** Run `pytest tests/test_generation.py -v`. Use `curl -N -X POST http://localhost:8000/api/v1/query -H "Authorization: Bearer {token}" -d '{"query":"What is the leave policy?"}' -H "Content-Type: application/json"` and confirm token events stream to the terminal followed by citation and done events.
 
-### Day 11 Outcomes
-- 200+ entry golden dataset covering 4 categories and 3 difficulty levels
-- Fast CI running on every PR in <60 seconds
-- Nightly RAGAS eval storing results to eval_scores table
-- Hard-negative miner running on 6-hour cron schedule
+---
+
+## Day 9 — Next.js 14 Frontend: Streaming Chat UI, PDF Viewer & Live Citation Highlighting
+
+**Goal:** A user can upload a document, ask a question, watch the answer stream token by token, and see the exact cited text highlighted on the PDF page in real time.
+
+**Deliverables:**
+- `frontend/` — Next.js 14 App Router project
+- `frontend/app/layout.tsx` — root layout with sidebar and auth guard
+- `frontend/app/(auth)/login/page.tsx` — login form
+- `frontend/app/chat/page.tsx` — streaming chat interface with message history
+- `frontend/app/documents/page.tsx` — document library with drag-and-drop upload
+- `frontend/app/documents/[docId]/page.tsx` — PDF viewer with bounding box overlay
+- `frontend/components/ChatMessage.tsx` — renders streamed tokens with citation chips
+- `frontend/components/PDFViewer.tsx` — react-pdf canvas + highlight overlay
+- `frontend/lib/api.ts` — typed API client for all backend endpoints
+
+**Tasks:**
+
+1. **Initialize project**:
+   ```bash
+   cd frontend
+   npx create-next-app@latest . --typescript --app --no-tailwind
+   npm install react-pdf @radix-ui/react-dialog framer-motion lucide-react
+   ```
+   Create a `styles/globals.css` with:
+   - CSS custom properties: `--bg: #0A0A0F`, `--surface: #13131A`, `--accent: #6366F1`, `--accent-light: #A78BFA`, `--text: #E4E4F0`, `--muted: #6B6B80`
+   - `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap')`
+   - Base styles: `body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; }`
+   - `.card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; backdrop-filter: blur(8px); }`
+
+2. **Create `frontend/lib/api.ts`**. Must export:
+   - `login(email, password) -> Promise<{access_token: string}>`
+   - `uploadDocument(file: File, token: string) -> Promise<{document_id: string}>`
+   - `getDocumentStatus(id: string, token: string) -> Promise<Document>`
+   - `streamQuery(query: string, token: string) -> AsyncGenerator<SSEEvent>` — uses `fetch` + `ReadableStream` to parse SSE events line by line
+
+3. **Create `frontend/components/ChatMessage.tsx`**. It must:
+   - Accept `{role: "user"|"assistant", content: string, citations: CitationBlock[], isStreaming: boolean}`
+   - Render streaming content with a blinking cursor animation while `isStreaming` is true
+   - Render each citation as a chip showing `filename:page` that, when clicked, emits an event to open the PDF viewer at that page and highlight the bounding box
+   - Use Framer Motion to animate new messages sliding up from the bottom
+
+4. **Create `frontend/components/PDFViewer.tsx`**. It must:
+   - Use `react-pdf` `<Document>` and `<Page>` to render PDF from a URL
+   - Maintain a `highlights: CitationBlock[]` state
+   - Over each page canvas, render absolutely-positioned `<div>` elements for each bounding box where `page_number` matches
+   - Style highlights as `background: rgba(99, 102, 241, 0.3); border: 1px solid rgba(99, 102, 241, 0.8); border-radius: 3px;`
+   - Animate new highlights with a pulse effect: keyframe scale `1.0 → 1.02 → 1.0`
+   - Show document page navigation controls
+
+5. **Create `frontend/app/chat/page.tsx`** as a Client Component. It must:
+   - Maintain state: `messages`, `isStreaming`, `activeCitations`
+   - On submit: append user message, call `api.streamQuery()`
+   - For each SSE token event: append to the current assistant message content
+   - For each SSE citation event: add to `activeCitations` and update the PDF viewer
+   - For SSE done event: mark `isStreaming = false`, save interaction metadata
+
+**Test:** Upload a PDF and ask a question about its content. Confirm tokens appear one by one in the chat. Confirm at least one citation chip appears after the stream ends. Click the citation chip and confirm the PDF opens to the correct page with a highlighted bounding box.
+
+---
+
+## Day 10 — Observability: OpenTelemetry Tracing, LangFuse & Admin Metrics Dashboard
+
+**Goal:** Every query produces a complete distributed trace showing latency per component. The admin dashboard shows live p95 TTFT, cache hit rate, and token cost.
+
+**Deliverables:**
+- `backend/app/core/telemetry.py` — OpenTelemetry tracer setup
+- Updated `backend/app/api/query.py` — spans wrapping every pipeline stage
+- `frontend/app/dashboard/page.tsx` — admin metrics dashboard with live charts
+- `backend/tests/test_observability.py` — 2 unit tests verifying span attributes
+
+**Tasks:**
+
+1. **Add to `requirements.txt`**: `opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-grpc`, `opentelemetry-instrumentation-fastapi`, `opentelemetry-instrumentation-asyncpg`, `langfuse`
+
+2. **Create `backend/app/core/telemetry.py`**:
+   ```python
+   from opentelemetry import trace
+   from opentelemetry.sdk.trace import TracerProvider
+   from opentelemetry.sdk.trace.export import BatchSpanProcessor
+   from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+   from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+   
+   def setup_telemetry(app):
+       provider = TracerProvider()
+       exporter = OTLPSpanExporter(endpoint="http://localhost:4317", insecure=True)
+       provider.add_span_processor(BatchSpanProcessor(exporter))
+       trace.set_tracer_provider(provider)
+       FastAPIInstrumentor.instrument_app(app)
+       return trace.get_tracer("rag.pipeline")
+   ```
+
+3. **Instrument `backend/app/api/query.py`**. Wrap each stage in a named span:
+   ```python
+   with tracer.start_as_current_span("stage.semantic_cache") as span:
+       span.set_attribute("cache.hit", is_hit)
+       span.set_attribute("query.length", len(query))
+   
+   with tracer.start_as_current_span("stage.retrieval") as span:
+       with tracer.start_as_current_span("retrieval.bm25"): ...
+       with tracer.start_as_current_span("retrieval.vector"): ...
+       with tracer.start_as_current_span("retrieval.graph"): ...
+       with tracer.start_as_current_span("retrieval.rrf_fusion"): ...
+       with tracer.start_as_current_span("retrieval.reranker"): ...
+   
+   with tracer.start_as_current_span("stage.generation") as span:
+       span.set_attribute("llm.model", model_name)
+       span.set_attribute("llm.ttft_ms", ttft_ms)
+       span.set_attribute("llm.prompt_tokens", prompt_tokens)
+   ```
+
+4. **Add Jaeger to `docker-compose.yml`**:
+   ```yaml
+   jaeger:
+     image: jaegertracing/all-in-one:latest
+     ports:
+       - "16686:16686"  # Jaeger UI
+       - "4317:4317"    # OTLP gRPC receiver
+   ```
+
+5. **Create `frontend/app/dashboard/page.tsx`**. Must display:
+   - Real-time query volume (last 24h) — poll `GET /api/v1/admin/stats` every 30 seconds
+   - p50 / p95 / p99 TTFT bar chart (data from `query_interactions` aggregation)
+   - Cache hit rate as a percentage gauge
+   - Daily token spend (prompt + completion tokens × model price per token)
+   - Recent query list with route label, latency, and thumbs up/down indicator
+   - System health badges for Postgres, Redis, Celery (from health check endpoints)
+
+6. **Create backend `GET /api/v1/admin/stats`** endpoint. Query `query_interactions` table and return:
+   ```json
+   {
+     "total_queries_24h": 142,
+     "avg_ttft_ms": 187,
+     "p95_ttft_ms": 340,
+     "cache_hit_rate": 0.31,
+     "total_tokens_today": 284000,
+     "thumbs_up_rate": 0.78
+   }
+   ```
+
+**Test:** Run a query and open Jaeger UI at `http://localhost:16686`. Search for service `rag.pipeline`. Confirm the trace shows all 6 spans (`stage.semantic_cache`, `retrieval.bm25`, `retrieval.vector`, `retrieval.graph`, `retrieval.rrf_fusion`, `stage.generation`) with correct timing. Open the admin dashboard and confirm all metrics panels render with real data.
+
+---
+
+## Day 11 — RAGAS CI/CD Evaluation: Golden Dataset, Tiered GitHub Actions & Hard-Negative Mining
+
+**Goal:** Every pull request runs a fast eval gate in under 60 seconds. Nightly evals run the full RAGAS suite and store results. Thumbs-down interactions automatically feed the evaluation dataset.
+
+**Deliverables:**
+- `evaluation/golden_dataset.json` — 200+ Q&A pairs with difficulty and category labels
+- `evaluation/run_ragas.py` — RAGAS evaluation runner
+- `evaluation/assert_thresholds.py` — CI threshold assertion script
+- `evaluation/hard_negative_miner.py` — Celery task for feedback-driven dataset growth
+- `.github/workflows/eval_fast.yml` — PR fast check workflow
+- `.github/workflows/eval_nightly.yml` — nightly full RAGAS workflow
+- `backend/tests/test_eval.py` — 3 unit tests for eval infrastructure
+
+**Tasks:**
+
+1. **Create `evaluation/golden_dataset.json`**. Populate with 200+ entries. Each entry must have:
+   ```json
+   {
+     "id": "eval_001",
+     "query": "What is the maximum annual leave for senior employees?",
+     "ground_truth": "Senior employees are entitled to 30 days of annual leave per year.",
+     "relevant_chunk_ids": [],
+     "difficulty": "easy",
+     "category": "HR_Policy"
+   }
+   ```
+   Categories: `HR_Policy`, `Technical_Docs`, `Financial_Reports`, `Legal_Contracts`, `Onboarding`
+   Difficulties: `easy` (single chunk answer), `medium` (requires 2-3 chunks), `hard` (multi-hop graph required)
+   Distribution: 40% easy, 40% medium, 20% hard
+
+2. **Create `evaluation/run_ragas.py`**. It must:
+   - Load `golden_dataset.json`
+   - For each sample, call the live API `POST /api/v1/query` and collect the answer and retrieved chunks
+   - Build a RAGAS `Dataset` with fields: `question`, `answer`, `contexts`, `ground_truth`
+   - Run `evaluate(dataset, metrics=[faithfulness, answer_relevancy, context_precision, context_recall])`
+   - Write results JSON to `evaluation/results/ragas_{timestamp}.json`
+   - Print a summary table to stdout
+   - Exit with code 1 if any metric falls below minimum threshold
+
+3. **Create `.github/workflows/eval_fast.yml`**:
+   ```yaml
+   name: Fast Eval Gate
+   on: [pull_request]
+   jobs:
+     fast-eval:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v4
+         - name: Set up Python
+           uses: actions/setup-python@v4
+           with: {python-version: '3.11'}
+         - name: Install dependencies
+           run: pip install -r backend/requirements.txt
+         - name: Run unit tests
+           run: cd backend && PYTHONPATH=. pytest tests/ -v --tb=short -x
+         - name: Retrieval recall@5 check
+           run: python evaluation/assert_thresholds.py --metric recall_at_5 --min 0.75
+         - name: Latency budget check
+           run: python evaluation/assert_thresholds.py --metric max_ttft_ms --max 500
+         - name: Citation integrity check
+           run: python evaluation/assert_thresholds.py --metric citation_parse_success_rate --min 0.95
+   ```
+
+4. **Create `.github/workflows/eval_nightly.yml`**:
+   ```yaml
+   name: Nightly RAGAS Full Evaluation
+   on:
+     schedule:
+       - cron: '0 2 * * *'
+   jobs:
+     ragas-eval:
+       runs-on: ubuntu-latest
+       steps:
+         - uses: actions/checkout@v4
+         - name: Run Full RAGAS Suite
+           run: python evaluation/run_ragas.py --dataset evaluation/golden_dataset.json
+           env:
+             API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+             API_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
+         - name: Assert faithfulness > 0.90
+           run: python evaluation/assert_thresholds.py --metric faithfulness --min 0.90
+         - name: Assert context precision > 0.80
+           run: python evaluation/assert_thresholds.py --metric context_precision --min 0.80
+         - name: Upload results
+           run: python evaluation/upload_results.py
+   ```
+
+5. **Create `evaluation/hard_negative_miner.py`**. Celery periodic task `mine_hard_negatives` scheduled every 6 hours:
+   - Query `query_interactions WHERE user_feedback = -1 AND created_at > NOW() - INTERVAL '6 hours'`
+   - For each negative interaction, send to LLM:
+     ```
+     Analyze why this RAG response was poor.
+     Query: {raw_query}
+     Retrieved chunks: {chunk_excerpts}
+     Given answer: {answer}
+     
+     Return JSON: {"failure_mode": "retrieval_fail|hallucination|context_loss|wrong_route", "correct_answer": "..."}
+     ```
+   - Append valid results to `evaluation/golden_dataset.json` with `"source": "hard_negative_mining"` and `"failure_mode"` field
+   - Log count of new entries added per run
+
+**Test:** Create a PR and confirm `eval_fast.yml` workflow completes in under 60 seconds. Verify all three fast checks pass. Give a query a thumbs-down, wait for the 6-hour miner (or trigger manually), and confirm a new entry appears in `golden_dataset.json` with the correct `failure_mode` label.
 
 ---
 
 ## Day 12 — dbt Analytics, Load Testing, Security Hardening & Production Deploy
 
-### Learning Objectives
-- Understand dbt model DAG (Staging → Intermediate → Fact → Report layers)
-- Learn load testing methodology: concurrent users, RPS, p95/p99 latency
-- Understand production security checklist
-- Learn Docker Compose production configuration
+**Goal:** The system sustains 100 concurrent SSE streams at under 200ms TTFT (p95). All security controls pass review. dbt models produce accurate daily analytics. Production Docker Compose is clean and repeatable.
 
-### Implementation Tasks
+**Deliverables:**
+- `dbt/models/staging/stg_query_interactions.sql`
+- `dbt/models/staging/stg_eval_scores.sql`
+- `dbt/models/marts/fct_daily_performance.sql`
+- `dbt/models/marts/rpt_eval_dashboard.sql`
+- `dbt/dbt_project.yml` — dbt project configuration
+- `locustfile.py` — load test definition
+- `docker-compose.prod.yml` — production-hardened compose file
+- `SECURITY.md` — security controls checklist with verification status
 
-#### 12.1 dbt Analytics Models
-```
-dbt/models/
-├── staging/
-│   ├── stg_query_interactions.sql   # Clean raw query logs
-│   └── stg_eval_scores.sql          # Clean RAGAS eval scores
-├── intermediate/
-│   ├── int_daily_query_metrics.sql  # Aggregate by day
-│   └── int_route_performance.sql    # Performance per route type
-└── marts/
-    ├── fct_daily_performance.sql    # Daily KPI fact table
-    └── rpt_eval_dashboard.sql       # Evaluation reporting model
-```
+**Tasks:**
 
-**Key metrics in fct_daily_performance:**
-- total_queries, avg_ttft_ms, p95_ttft_ms
-- total_tokens, thumbs_up_rate, thumbs_down_rate
-- cache_hit_rate, hallucination_rate
+1. **Create `dbt/dbt_project.yml`**:
+   ```yaml
+   name: 'rag_analytics'
+   version: '1.0.0'
+   profile: 'rag_pipeline'
+   model-paths: ["models"]
+   models:
+     rag_analytics:
+       staging:
+         +materialized: view
+       marts:
+         +materialized: table
+   ```
 
-#### 12.2 Load Testing with Locust
-```python
-# locustfile.py — Target: 100 concurrent users, p95 TTFT <200ms
-class RAGPipelineUser(HttpUser):
-    wait_time = between(1, 3)
-    @task(10)
-    def query_factual(self):
-        # POST /api/v1/query with JWT auth
+2. **Create `dbt/models/staging/stg_query_interactions.sql`**:
+   ```sql
+   SELECT
+       id,
+       tenant_id,
+       user_id,
+       raw_query,
+       route_used,
+       ttft_ms,
+       total_latency_ms,
+       prompt_tokens,
+       completion_tokens,
+       (prompt_tokens + completion_tokens) AS total_tokens,
+       user_feedback,
+       created_at::DATE AS query_date,
+       created_at
+   FROM query_interactions
+   WHERE created_at >= CURRENT_DATE - INTERVAL '90 days'
+   ```
 
-# Run: locust -f locustfile.py --users 100 --spawn-rate 10 --run-time 5m
-```
+3. **Create `dbt/models/marts/fct_daily_performance.sql`**:
+   ```sql
+   SELECT
+       query_date,
+       COUNT(*) AS total_queries,
+       AVG(ttft_ms) AS avg_ttft_ms,
+       PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY ttft_ms) AS p50_ttft_ms,
+       PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY ttft_ms) AS p95_ttft_ms,
+       PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY ttft_ms) AS p99_ttft_ms,
+       SUM(total_tokens) AS total_tokens,
+       COUNT(CASE WHEN user_feedback = 1 THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) AS thumbs_up_rate,
+       COUNT(CASE WHEN route_used = 'cache' THEN 1 END)::FLOAT / NULLIF(COUNT(*), 0) AS cache_hit_rate,
+       COUNT(CASE WHEN route_used = 'MULTI_HOP_GRAPH' THEN 1 END) AS graph_route_count
+   FROM {{ ref('stg_query_interactions') }}
+   GROUP BY 1
+   ORDER BY 1 DESC
+   ```
 
-#### 12.3 Security Hardening Checklist
-- [ ] All secrets in .env (never hardcoded)
-- [ ] JWT_SECRET minimum 64-character random string
-- [ ] Security headers: X-Content-Type-Options, X-Frame-Options, HSTS
-- [ ] Rate limiting: 60 req/min per user, 1000 req/min per tenant
-- [ ] Input sanitization: max 1000 chars, strip HTML/script tags
-- [ ] SQL injection prevention: parameterized queries only
-- [ ] PostgreSQL rag_user has no SUPERUSER privileges
-- [ ] Redis password-protected, no external port exposure
-- [ ] API key rotation every 90 days
+4. **Create `locustfile.py`** at project root:
+   ```python
+   from locust import HttpUser, task, between
+   
+   class RAGUser(HttpUser):
+       wait_time = between(1, 3)
+   
+       def on_start(self):
+           r = self.client.post("/api/v1/auth/login", data={
+               "username": "loadtest@rag.local",
+               "password": "LoadTest2026!"
+           })
+           self.token = r.json()["access_token"]
+           self.headers = {"Authorization": f"Bearer {self.token}"}
+   
+       @task(8)
+       def factual_query(self):
+           self.client.post("/api/v1/query",
+               json={"query": "What is the annual leave policy?"},
+               headers=self.headers,
+               stream=True
+           )
+   
+       @task(2)
+       def upload_document(self):
+           with open("tests/fixtures/sample.pdf", "rb") as f:
+               self.client.post("/api/v1/documents/upload",
+                   files={"file": f},
+                   headers=self.headers
+               )
+   
+   # Run: locust -f locustfile.py --users 100 --spawn-rate 10 --run-time 5m --headless
+   # Pass condition: p95 TTFT < 200ms, error rate < 1%
+   ```
 
-#### 12.4 Final Production Checklist
-- [ ] All 200+ golden dataset evaluation tests passing (faithfulness >0.90)
-- [ ] Load test: 100 concurrent users, p95 TTFT <200ms
-- [ ] All security headers verified
-- [ ] RLS verified: tenant A cannot access tenant B data
-- [ ] dbt models running and populating analytics tables
-- [ ] GitHub Actions CI: fast eval passing, nightly eval scheduled
-- [ ] Hard-negative mining worker running on cron
-- [ ] API documentation complete at /docs
-- [ ] README.md with full setup and architecture guide
-- [ ] Docker Compose production manifest tested end-to-end
+5. **Create `docker-compose.prod.yml`**:
+   - Remove all `--reload` flags from uvicorn command
+   - Add `nginx` service (image `nginx:alpine`) as reverse proxy on ports 80/443
+   - Add `deploy.replicas: 2` for backend service
+   - Add `deploy.resources.limits: {memory: 1G, cpus: "1.0"}` for backend
+   - Set all secrets via environment variable references `${JWT_SECRET}` — never hardcoded
+   - Add `restart: unless-stopped` to all services
 
-### Day 12 Outcomes
-- dbt models producing daily analytics fact tables
-- System sustains 100 concurrent SSE streams at <200ms TTFT (p95)
-- All security headers and RLS policies verified
-- **Full platform end-to-end live and production-ready**
+6. **Complete `SECURITY.md`** as a verifiable checklist. Each item must have a verification command or step:
+   - `[ ]` JWT_SECRET is minimum 64 characters: `echo -n "$JWT_SECRET" | wc -c`
+   - `[ ]` No secrets in git history: `git log --all --oneline | head -20` + `detect-secrets scan`
+   - `[ ]` Security headers present: `curl -I https://your-domain.com/health | grep -E "X-Content|X-Frame|Strict"`
+   - `[ ]` RLS blocks cross-tenant access: documented manual test procedure
+   - `[ ]` Rate limiting active: `for i in {1..70}; do curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health; done | grep -c 429`
+   - `[ ]` Redis password set and port not exposed externally
+   - `[ ]` Input max length enforced: send 1001-char query, expect 422
+   - `[ ]` No raw HTML in chunk content (XSS prevention): grep stored chunks for `<script`
+
+**Acceptance Gate for Day 12:**
+- [ ] `dbt run && dbt test` completes with 0 failures
+- [ ] Locust runs 100 concurrent users for 5 minutes — p95 TTFT < 200ms, error rate < 1%
+- [ ] All 8 SECURITY.md items are checked and verified with their test command
+- [ ] `docker-compose -f docker-compose.prod.yml up -d` brings up all services cleanly
+- [ ] All 200+ golden dataset evals pass with faithfulness > 0.90
+- [ ] GitHub Actions fast eval workflow passes in under 60 seconds from a clean checkout
+- [ ] `GET /docs` returns the full OpenAPI spec
+- [ ] A fresh clone of the repo + `docker-compose up` + README instructions produces a working system with no external guidance
 
 ---
 
 ## Final Architecture Delivered
 
 ```
-                +-----------------------------------------+
-                |   Next.js 14 Streaming Chat UI           |
-                |   SSE Consumer + PDF BBox Viewer         |
-                +------------------+----------------------+
-                                   | HTTPS / SSE
-                +-----------------------------------------+
-                |   FastAPI API Gateway (Nginx)            |
-                |   JWT Auth → PII Guard → Rate Limiter    |
-                +--------+--------------------------+------+
-         Cache HIT <15ms |                          | Cache MISS
-    +-------------------v--+    +------------------v------------------+
-    | Redis Semantic Cache  |    | Agentic Query Processor             |
-    | (Vector Similarity)   |    | HyDE + Multi-Query + Strategy Route |
-    +-----------------------+    +----+----------+----------+----------+
-                                      |          |          |
-                              BM25    |  pgvector |  GraphRAG|
-                    +-----------------v----------v----------v---------+
-                    |         Tri-Hybrid Retrieval Engine              |
-                    |   pgvector HNSW + BM25 TSVector + GraphRAG      |
-                    +----------------------------+---------------------+
-                                                 | RRF Fusion
-                    +----------------------------v---------------------+
-                    |   ONNX ColBERT Reranker + LLMLingua Compressor   |
-                    +----------------------------+---------------------+
-                                                 | Top-5 Chunks
-                    +----------------------------v---------------------+
-                    |   Gemini 1.5 Pro / GPT-4o Grounded Generation    |
-                    |   Structured JSON + Bounding-Box Citation SSE    |
-                    +--------------------+----------------------------+
-                                         |
-              +---------------------------+---------------------------+
-              |                                                        |
-+-------------v-----------+                         +----------------v--+
-| OpenTelemetry + LangFuse |                         | Postgres Logs      |
-| Live Tracing Dashboard   |                         | dbt Analytics      |
-+--------------------------+                         | RAGAS CI/CD Eval   |
-                                                     +--------------------+
+[ Next.js 14 Chat UI ]  ←──── SSE Token Stream + Citation Bounding Boxes
+        │
+        │ HTTPS
+        ▼
+[ Nginx Reverse Proxy ]
+        │
+        ▼
+[ FastAPI Gateway ]
+  ├─ JWT Auth + RLS Tenant Injection
+  ├─ PII Guard (Presidio)
+  └─ Rate Limiter (60 req/min/user)
+        │
+        ├──────────────────────────────────────── [Cache HIT < 15ms]
+        │                                                │
+        ▼                                        [ Redis Semantic Cache ]
+[ Agentic Pipeline ]
+  ├─ Strategy Classifier (FACTUAL / GRAPH / SQL / DIRECT)
+  ├─ HyDE Embedding Generator
+  └─ Multi-Query Expander (3 variants)
+        │
+        ▼
+[ Tri-Hybrid Retrieval — asyncio.gather() ]
+  ├─ BM25 TSVector Search      (PostgreSQL)
+  ├─ pgvector HNSW Dense Search (PostgreSQL + pgvector)
+  └─ GraphRAG Recursive CTE    (PostgreSQL entity_triples)
+        │
+        ▼
+[ Reciprocal Rank Fusion (RRF, k=60) ]
+        │
+        ▼
+[ ONNX Cross-Encoder Reranker — top 40 → top 5, < 35ms ]
+        │
+        ▼
+[ LLMLingua Contextual Compressor — 50% token reduction ]
+        │
+        ▼
+[ LLM Grounded Generation — Gemini 1.5 Pro / GPT-4o ]
+        │
+        ├──► SSE Token Stream → Frontend
+        ├──► Citation BBox Events → PDF Viewer
+        └──► OpenTelemetry Spans → Jaeger + LangFuse
+                                         │
+                                         ▼
+                               [ Postgres Interaction Log ]
+                                         │
+                                         ▼
+                               [ dbt Analytics Pipeline ]
+                               [ RAGAS Nightly CI/CD Eval ]
+                               [ Hard-Negative Mining Worker ]
 ```
 
 ---
 
 ## Technology Stack
 
-| Component | Technology |
-|:---|:---|
-| API Framework | FastAPI + Pydantic v2 + asyncpg |
-| Document Parsing | Docling (Vision Layout Parser) |
-| PII Masking | Microsoft Presidio |
-| Embedding Model | OpenAI text-embedding-3-small (1536d) |
-| Vector DB | PostgreSQL 16 + pgvector HNSW |
-| Lexical Search | PostgreSQL TSVector + BM25 Okapi |
-| Knowledge Graph | PostgreSQL Recursive CTE / Apache AGE |
-| Reranking | ONNX ColBERT + BGE Reranker Large |
-| Compression | LongLLMLingua2 |
-| Caching | Redis 7 (Semantic Vector Cache) |
-| Task Queue | Celery 5 + Redis Broker |
-| LLM Generation | Gemini 1.5 Pro / GPT-4o |
-| Frontend | Next.js 14 App Router + TypeScript |
-| Observability | OpenTelemetry + LangFuse |
-| Evaluation | RAGAS + Golden Dataset CI/CD |
-| Analytics | dbt Core + PostgreSQL Marts |
-| Load Testing | Locust |
-| Infrastructure | Docker Compose → Kubernetes-ready |
+| Component | Technology | Version |
+|:---|:---|:---:|
+| API Framework | FastAPI + asyncpg | ≥0.110 |
+| Data Validation | Pydantic v2 | ≥2.6 |
+| Document Parsing | Docling | latest |
+| PII Masking | Microsoft Presidio | latest |
+| Embedding | OpenAI text-embedding-3-small | - |
+| Vector Store | PostgreSQL 16 + pgvector HNSW | pg16 |
+| Lexical Search | PostgreSQL TSVector + BM25 | pg16 |
+| Knowledge Graph | PostgreSQL Recursive CTE | pg16 |
+| Reranking | ONNX ms-marco-MiniLM-L-6-v2 | - |
+| Compression | LongLLMLingua2 | latest |
+| Cache | Redis 7 + Semantic Vector Cache | 7-alpine |
+| Task Queue | Celery 5 + Redis | ≥5.3 |
+| LLM | Gemini 1.5 Pro / GPT-4o | - |
+| Frontend | Next.js 14 App Router + TypeScript | 14 |
+| Tracing | OpenTelemetry + Jaeger + LangFuse | - |
+| Evaluation | RAGAS + 200-pair Golden Dataset | latest |
+| Analytics | dbt Core + PostgreSQL Marts | - |
+| Load Testing | Locust | latest |
+| Infrastructure | Docker Compose → Kubernetes-ready | - |
