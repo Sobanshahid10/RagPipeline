@@ -1,224 +1,283 @@
-# Enterprise RAG & Evaluation Engine: Master Architecture Blueprint (2026 Edition)
+# Production RAG Pipeline
 
-> [!IMPORTANT]
-> **Production Grade Standard**: This technical specification defines a tier-1, enterprise-ready **Retrieval-Augmented Generation (RAG) Platform**. It addresses real-world failure modes—such as context loss, hallucination, multi-hop reasoning gaps, and unmonitored quality regressions—through **ColBERT Late Interaction**, **GraphRAG**, **Layout-Aware Vision Parsing**, **Row-Level Security (RLS)**, and **Continuous LLM-as-a-Judge CI/CD Evals**.
+A production-grade, multi-tenant Retrieval-Augmented Generation (RAG) platform designed for reliability, strict data isolation, and low-latency retrieval. Built on **FastAPI**, **PostgreSQL 16 (pgvector)**, **Redis**, **Celery**, and **Docker**.
 
 ---
 
-## 1. High-Level Architecture & Plane Separation
+## Highlights & Capabilities
 
-The platform is split into three decoupled planes sharing a common PostgreSQL + Redis infrastructure:
+- **Strict Multi-Tenant Isolation**: Tenant data separation enforced at the database layer using PostgreSQL Row-Level Security (RLS) and cryptographically signed JWTs.
+- **Tri-Hybrid Retrieval Engine**: Fuses lexical BM25 (`tsvector`), dense semantic vector search (`pgvector` HNSW cosine), and entity-relationship GraphRAG via Reciprocal Rank Fusion (RRF).
+- **Sub-35ms Late-Interaction Reranking**: ColBERTv2 / cross-encoder token-level late interaction matrix scoring to maximize precision before LLM generation.
+- **Layout-Aware Vision Ingestion**: Document parsing via Docling with table structure preservation and Microsoft Presidio automated PII masking.
+- **Asynchronous Processing**: Background document chunking, embedding generation, and graph extraction powered by Celery and Redis.
+- **Continuous Quality Evaluation**: Query latency tracking (TTFT), hallucination detection, and RAGAS metrics (Faithfulness, Context Precision, Answer Relevancy).
 
-```mermaid
-flowchart TB
-    subgraph ServingPlane ["1. Real-Time Serving Plane (<200ms TTFT)"]
-        CLIENT["Next.js 14 Streaming Chat UI"]
-        GW["FastAPI API Gateway"]
-        GUARD["Guardrails & PII Masking (Microsoft Presidio)"]
-        CACHE["Redis Semantic Vector Cache"]
-        REWRITE["Query Rewriter & HyDE Generator"]
-        ROUTER["Agentic Router (Vector / Graph / SQL / Direct)"]
-        RETRIEVAL["Tri-Hybrid Engine (BM25 + pgvector + GraphRAG)"]
-        FUSION["Reciprocal Rank Fusion (RRF)"]
-        COLBERT["ONNX ColBERT Reranker"]
-        GEN["LLM Generator (Gemini 1.5 Pro / GPT-4o)"]
-        SSE["SSE Token & Bounding-Box Streamer"]
-    end
+---
 
-    subgraph IngestionPlane ["2. Async Document Ingestion Plane"]
-        UPLOAD["Raw PDF / DOCX / Scans / Web URLs"]
-        PARSE["Docling Layout-Aware Vision Parser"]
-        CHUNK["Semantic Embedding-Shift Chunking"]
-        CTX_PREPEND["Anthropic Contextual Summary Injection"]
-        GRAPH_BUILD["Knowledge Graph Entity-Relation Extractor"]
-        INDEX_WRITE["Postgres pgvector HNSW & TSVector Indexer"]
-    end
+## System Architecture
 
-    subgraph EvalPlane ["3. Continuous Evaluation & Analytics Plane"]
-        OTEL["OpenTelemetry Live Tracing"]
-        GOLDEN["Golden Test Suite (200+ Q&A Pairs)"]
-        RAGAS["RAGAS Evaluator (Faithfulness, Recall, Precision)"]
-        FEEDBACK["Implicit User Feedback & Hard-Negative Mining"]
-        DBT["dbt Analytics Modeling Pipeline"]
-        DASH["Admin Quality & Performance Dashboard"]
-    end
+The platform operates across three decoupled planes sharing PostgreSQL and Redis infrastructure:
 
-    CLIENT --> GW --> GUARD --> CACHE
-    CACHE -- Miss --> REWRITE --> ROUTER --> RETRIEVAL
-    RETRIEVAL --> FUSION --> COLBERT --> GEN --> SSE --> CLIENT
-    
-    UPLOAD --> PARSE --> CHUNK --> CTX_PREPEND --> INDEX_WRITE
-    CHUNK --> GRAPH_BUILD --> INDEX_WRITE
-
-    SSE --> OTEL
-    CLIENT --> FEEDBACK --> GOLDEN --> RAGAS --> DBT --> DASH
+```
+                      ┌─────────────────────────────────────────┐
+                      │           Next.js / Client UI           │
+                      └────────────────────┬────────────────────┘
+                                           │
+                                  REST API / SSE Stream
+                                           │
+                                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 1. Serving Plane (FastAPI Gateway)                                                     │
+│                                                                                        │
+│   [Auth & RLS Context] ──► [Presidio PII Masking] ──► [Redis Semantic Vector Cache]    │
+│                                                                     │ (Cache Miss)     │
+│                                                                     ▼                  │
+│   [RRF Fusion & ColBERT Reranker] ◄── [Tri-Hybrid Engine (BM25 + pgvector + GraphRAG)] │
+│                 │                                                                      │
+│                 ▼                                                                      │
+│   [LLM Generator (Gemini / GPT-4o)] ──► [SSE Token Streamer with Bounding Boxes]       │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 2. Asynchronous Ingestion Plane (Celery + Redis)                                       │
+│                                                                                        │
+│   [Raw PDF / DOCX] ──► [Docling Vision Parser] ──► [Sentence-Aware Semantic Chunker]   │
+│                                                              │                         │
+│                                                              ▼                         │
+│   [PostgreSQL HNSW & TSVector Indexer] ◄── [Contextual Summary Injection & Embeddings] │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+                                           │
+                                           ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│ 3. Observability & Evaluation Plane                                                    │
+│                                                                                        │
+│   [OpenTelemetry Traces] ──► [Query Interaction Logs] ──► [RAGAS LLM-as-a-Judge Evals] │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Advanced Mathematical & Algorithmic Specifications
+## Quickstart
 
-### A. Tri-Hybrid Reciprocal Rank Fusion (RRF)
-To unify disparate scoring scales across lexical keyword search ($BM25$), dense vector similarity ($pgvector$), and graph traversal proximity ($GraphRAG$), candidate chunks $d$ are fused via reciprocal rank aggregation:
+### Prerequisites
 
-$$RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
+- **Docker** & **Docker Compose** (recommended)
+- Alternatively: **Python 3.11+**, PostgreSQL 16 with pgvector extension, and Redis 7+
 
-Where:
-* $M = \{\text{BM25 Sparse}, \text{Dense Vector}, \text{GraphRAG}\}$
-* $r_m(d)$ is the 1-based rank position of document chunk $d$ in retrieval method $m$.
-* $k = 60$ (smoothing constant preventing over-weighting top-1 outliers).
+### 1. Clone & Configure Environment
 
-### B. ColBERT Late Interaction Reranking
-While standard bi-encoders condense whole chunks into a single vector (losing token-level granularity), **ColBERTv2** computes token-to-token late interaction matrix multiplication:
+```bash
+git clone https://github.com/Sobanshahid10/RagPipeline.git
+cd RagPipeline
 
-$$S(q, d) = \sum_{i \in q} \max_{j \in d} \left( E_i \cdot D_j^T \right)$$
+# Copy sample environment configuration
+cp .env.example .env
+```
 
-Where $E_i$ represents the embedding vector of the $i$-th query token and $D_j$ represents the embedding vector of the $j$-th document token. Executed via ONNX Runtime, this delivers sub-35ms reranking precision.
+### 2. Start the Infrastructure (Docker Compose)
 
-### C. RAGAS Quality Metrics & Formal Definitions
+Start all services (PostgreSQL with pgvector, Redis, FastAPI Backend, Celery Worker):
 
-#### 1. Answer Faithfulness (Hallucination Index)
-Measures if every claim $c_i$ in the generated answer $A$ is strictly entailed by retrieved context $C$:
+```bash
+docker-compose up -d --build
+```
 
-$$\text{Faithfulness} = \frac{|\{c_i \in A \mid C \models c_i\}|}{|\text{Total Claims } A|}$$
+Verify service status:
 
-Target Threshold: $\mathbf{> 0.90}$
+```bash
+docker-compose ps
+```
 
-#### 2. Context Precision @ K
-Evaluates whether relevant chunks bubble up to the top rank positions:
-
-$$\text{Context Precision}@K = \frac{\sum_{k=1}^K (\text{Precision}@k \times v_k)}{\text{Total Relevant Chunks in Top } K}$$
-
-Where $v_k \in \{0, 1\}$ is the binary relevance indicator at rank $k$.
-
----
-
-## 3. Comprehensive Technology Architecture
-
-| Layer | Standard RAG Implementation | Enterprise Production Engine |
-| :--- | :--- | :--- |
-| **Parsing & Extraction** | PyMuPDF text scraping | **Docling / ColPali Vision Parsing** (handles tables, charts, multi-column layouts) |
-| **PII & Privacy** | None | **Microsoft Presidio** (automatic scrubbing of SSNs, secrets, keys before vectorization) |
-| **Chunking** | Naive Token Sliding Window (512/64) | **Semantic Embedding-Shift Boundaries** + **Anthropic Global Context Injection** |
-| **Search Subsystem** | Basic Vector Cosine Lookup | **Tri-Hybrid Engine** (BM25 Lexical + `pgvector HNSW` + Apache AGE GraphRAG) |
-| **Reranking** | None or Python PyTorch | **ONNX-Accelerated BGE Reranker** + **ColBERT Token Late-Interaction** |
-| **Query Routing** | Single Vector Search | **Agentic Router** (HyDE, Query Expansion, Redis Semantic Caching $<15\text{ms}$) |
-| **Streaming UI** | Raw Markdown Text | **Structured SSE JSON Stream** with real-time PDF **Bounding Box Coordinates** |
-| **Security & Auth** | API Keys | **JWT + PostgreSQL Row-Level Security (RLS)** for multi-tenant data boundaries |
-| **Observability** | Console Print Logs | **OpenTelemetry** + **LangFuse Tracing** (TTFT, token costs, latency breakdowns) |
-| **CI/CD Quality Control** | Untested in CI | **Tiered CI** (45s Micro-Evals on PR + Nightly Full RAGAS LLM-as-a-Judge Evals) |
-| **Analytics** | None | **dbt Core Data Pipeline** (Staging, Fact, and Reporting Models) |
+Once running, the services are available at:
+- **FastAPI Backend & API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Health Check**: [http://localhost:8000/health](http://localhost:8000/health)
+- **PostgreSQL Database**: `localhost:5432` (`rag_db`)
+- **Redis Cache & Broker**: `localhost:6379`
 
 ---
 
-## 4. Production Database Schema (PostgreSQL 16 + pgvector)
+## Local Development Setup
+
+If running or developing without Docker:
+
+```bash
+# 1. Create and activate a Python virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# 2. Install backend dependencies
+pip install --upgrade pip
+pip install -r backend/requirements.txt
+
+# 3. Launch the FastAPI development server
+cd backend
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+---
+
+## Authentication & Multi-Tenancy
+
+Every tenant organization is fully isolated in PostgreSQL. Requests require a signed JWT bearer token containing tenant and user metadata, which automatically activates the database session variable `app.current_tenant_id` for Row-Level Security (RLS).
+
+### 1. Register a New Organization & Admin Account
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/register" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "email": "admin@acme.corp",
+       "password": "SuperSecretPassword123!",
+       "tenant_name": "Acme Corporation"
+     }'
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": "7b0a8520-7f2a-4a8f-b989-13834eb7b6f1",
+  "email": "admin@acme.corp",
+  "tenant_id": "90e0c3ab-09b3-469a-bdfd-7c2db95c8ec2",
+  "roles": ["admin"],
+  "is_active": true,
+  "created_at": "2026-08-16T00:58:00Z",
+  "tenant": {
+    "id": "90e0c3ab-09b3-469a-bdfd-7c2db95c8ec2",
+    "name": "Acme Corporation",
+    "slug": "acme-corporation",
+    "created_at": "2026-08-16T00:58:00Z"
+  }
+}
+```
+
+### 2. Obtain an Access Token (OAuth2 Login)
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/login" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     -d "username=admin@acme.corp&password=SuperSecretPassword123!"
+```
+
+**Response (200 OK):**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+### 3. Fetch Current Authenticated User Profile
+
+```bash
+curl -X GET "http://localhost:8000/api/v1/auth/me" \
+     -H "Authorization: Bearer <YOUR_ACCESS_TOKEN>"
+```
+
+---
+
+## PostgreSQL Row-Level Security (RLS)
+
+Multi-tenancy is guaranteed at the database engine level via RLS policies defined in `backend/db/init.sql`.
 
 ```sql
--- Extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "vector";
-CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-
--- Multimodal Documents Table
-CREATE TABLE documents (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    filename TEXT NOT NULL,
-    file_type VARCHAR(20) NOT NULL,
-    doc_hash VARCHAR(64) UNIQUE NOT NULL, -- SHA-256 idempotency check
-    storage_uri TEXT NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending', -- pending, processing, indexed, failed
-    total_pages INT DEFAULT 0,
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Multimodal Chunks Table
-CREATE TABLE chunks (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL,
-    chunk_index INT NOT NULL,
-    content TEXT NOT NULL,
-    contextual_summary TEXT, -- Anthropic global document summary
-    page_number INT,
-    bounding_box JSONB, -- [ymin, xmin, ymax, xmax] for PDF rendering
-    token_count INT NOT NULL,
-    embedding VECTOR(1536), -- Dense vector representation
-    sparse_tsv TSVECTOR,    -- Lexical search vector
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Fast Vector HNSW Index & TSVector GIN Index
-CREATE INDEX idx_chunks_embedding_hnsw ON chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
-CREATE INDEX idx_chunks_sparse_tsv ON chunks USING gin (sparse_tsv);
-CREATE INDEX idx_chunks_tenant ON chunks(tenant_id);
-
--- Knowledge Graph Triples (GraphRAG)
-CREATE TABLE entity_triples (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    source_chunk_id UUID REFERENCES chunks(id) ON DELETE CASCADE,
-    subject TEXT NOT NULL,
-    predicate TEXT NOT NULL,
-    object TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX idx_triples_sub_obj ON entity_triples(subject, object);
-
--- Real-Time Query & Observability Logs
-CREATE TABLE query_interactions (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    user_id UUID NOT NULL,
-    session_id UUID NOT NULL,
-    raw_query TEXT NOT NULL,
-    rewritten_query TEXT,
-    route_used VARCHAR(50),
-    retrieved_chunk_ids UUID[],
-    answer TEXT,
-    ttft_ms INT,          -- Time to First Token
-    total_latency_ms INT,
-    prompt_tokens INT,
-    completion_tokens INT,
-    user_feedback INT DEFAULT 0, -- 1=Thumbs Up, -1=Thumbs Down
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Multi-Tenant Row-Level Security (RLS)
-ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
+-- RLS Policy Example on Chunks Table
 ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE entity_triples ENABLE ROW LEVEL SECURITY;
-ALTER TABLE query_interactions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY chunks_tenant_isolation ON chunks
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
+```
+
+When an authenticated user issues a request, FastAPI sets the session variable before executing queries:
+```sql
+SET LOCAL app.current_tenant_id = '<user_tenant_id>';
+```
+Any query executed in that transaction will only see rows belonging to `<user_tenant_id>`, making cross-tenant data leaks impossible even if application filters are omitted.
+
+---
+
+## Directory Structure
+
+```
+.
+├── backend/
+│   ├── Dockerfile                 # Python 3.11 container definition
+│   ├── requirements.txt           # Pinned production dependencies
+│   ├── pytest.ini                 # Pytest configuration
+│   ├── app/
+│   │   ├── main.py                # FastAPI entry point & router mounting
+│   │   ├── config.py              # Pydantic Settings (.env loader)
+│   │   ├── celery_app.py          # Celery worker & priority queues
+│   │   ├── api/
+│   │   │   ├── __init__.py
+│   │   │   └── auth.py            # /register, /login, /me endpoints
+│   │   ├── core/
+│   │   │   ├── __init__.py
+│   │   │   ├── security.py        # Bcrypt password hashing & JWT handlers
+│   │   │   └── dependencies.py    # get_current_user auth dependency
+│   │   ├── db/
+│   │   │   ├── __init__.py
+│   │   │   └── session.py         # Async SQLAlchemy engine & RLS session provider
+│   │   ├── models/
+│   │   │   ├── __init__.py
+│   │   │   ├── base.py            # SQLAlchemy DeclarativeBase
+│   │   │   └── user.py            # Tenant & User ORM models
+│   │   ├── schemas/
+│   │   │   ├── __init__.py
+│   │   │   └── auth.py            # Pydantic request/response schemas
+│   │   ├── ingestion/
+│   │   │   └── chunking.py        # Sentence-aware chunking & token counter
+│   │   └── retrieval/
+│   │       ├── fusion.py          # Reciprocal Rank Fusion (RRF)
+│   │       └── reranker.py        # Cross-encoder late-interaction reranker
+│   ├── db/
+│   │   └── init.sql               # PostgreSQL extensions, schema, indexes, RLS
+│   └── tests/
+│       ├── conftest.py            # Async test database fixtures & client
+│       ├── test_api.py            # Health & system info tests
+│       ├── test_auth.py           # Registration, login, token, and RLS tests
+│       ├── test_chunking.py       # Sentence segmentation and chunking tests
+│       ├── test_day1_verification.py # Day 1 scaffold integrity tests
+│       └── test_retrieval.py      # RRF fusion & reranker unit tests
+├── docker-compose.yml             # Orchestrates Postgres, Redis, App, Celery
+├── PLAN.md                        # 12-Day Step-by-Step Execution Plan
+└── README.md
 ```
 
 ---
 
-## 5. Enterprise Implementation Plan & Milestones
+## Running the Automated Test Suite
 
-### Milestone 1: Core Infrastructure, Security & Ingestion Pipeline
-* Setup Docker Compose (PostgreSQL `pgvector`, Redis, FastAPI, Celery, Next.js).
-* Configure Row-Level Security (RLS) policies for multi-tenant document protection.
-* Build Docling vision layout parser, Microsoft Presidio PII masker, and semantic chunking module.
+All test suites can be executed inside the virtual environment:
 
-### Milestone 2: Tri-Hybrid Search & Acceleration Engine
-* Implement `pgvector HNSW` index + `BM25 tsvector` search + `Apache AGE` GraphRAG triple extraction.
-* Build Reciprocal Rank Fusion (RRF) and ONNX-compiled `ColBERT` / `bge-reranker` late-interaction reranking.
-* Implement LongLLMLingua contextual compression.
+```bash
+# Run all tests with verbose output
+pytest backend/tests/ -v
 
-### Milestone 3: Agentic Routing, SSE Streaming & Next.js UI
-* Build Redis Vector Semantic Cache ($<15\text{ms}$ hit response).
-* Implement HyDE generator and Agentic Strategy Classifier.
-* Build Next.js 14 App Router UI with PDF viewer canvas rendering bounding-box highlighted source citations.
+# Run authentication and multi-tenancy tests specifically
+pytest backend/tests/test_auth.py -v
+```
 
-### Milestone 4: Observability, Tiered Eval CI & Hard-Negative Mining
-* Integrate OpenTelemetry live tracing with LangFuse dashboard.
-* Build 200+ Q&A Golden Test Suite and GitHub Actions Tiered CI pipeline.
-* Implement automated hard-negative feedback ingestion loop for user thumbs-down logs.
+### Verified Test Cases
 
-### Milestone 5: dbt Data Pipelines & Production Hardening
-* Build dbt analytics modeling suite (`stg_interactions`, `fct_daily_performance`, `rpt_eval_dashboard`).
-* Execute Locust load testing for 100 concurrent SSE streams ($<200\text{ms}$ TTFT).
-* Deploy with Docker Compose / Kubernetes production manifests.
+- **Authentication Suite (`tests/test_auth.py`)**:
+  - `test_register_new_user`: Organization & admin user creation with hashed credentials
+  - `test_login_correct_credentials`: OAuth2 login and JWT bearer token issuance
+  - `test_login_wrong_password`: 401 Unauthorized on credential mismatch
+  - `test_get_me_with_valid_token`: Profile retrieval for authenticated sessions
+  - `test_get_me_without_token`: 401 Unauthorized rejection on missing headers
+  - `test_get_me_with_malformed_token`: 401 Unauthorized rejection on invalid JWT signatures
+  - `test_register_duplicate_email`: 400 Bad Request prevention on duplicate accounts
+  - `test_multi_tenant_isolation`: Cross-tenant boundary and token claim verification
+- **Ingestion & Retrieval Suite**:
+  - Sentence-aware semantic boundary chunking
+  - Reciprocal Rank Fusion (RRF) merging
+  - Cross-encoder reranking score validation
+  - Day 1 scaffold and database schema integrity verification
+
+---
+
+## License
+
+This project is licensed under the MIT License.

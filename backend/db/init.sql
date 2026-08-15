@@ -112,3 +112,17 @@ ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE entity_triples ENABLE ROW LEVEL SECURITY;
 ALTER TABLE query_interactions ENABLE ROW LEVEL SECURITY;
+
+-- Multi-Tenant RLS Policies (Session Variable app.current_tenant_id)
+CREATE POLICY documents_tenant_isolation ON documents
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
+
+CREATE POLICY chunks_tenant_isolation ON chunks
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
+
+CREATE POLICY entity_triples_tenant_isolation ON entity_triples
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
+
+CREATE POLICY query_interactions_tenant_isolation ON query_interactions
+    USING (tenant_id = current_setting('app.current_tenant_id', TRUE)::UUID);
+

@@ -23,11 +23,19 @@ def test_fastapi_app_metadata():
     assert app.openapi_url == f"{settings.API_V1_STR}/openapi.json"
     
     # Verify routes exist
-    routes = [route.path for route in app.routes]
+    routes = []
+    for route in app.routes:
+        if hasattr(route, "path"):
+            routes.append(route.path)
+        elif hasattr(route, "routes"):
+            for sub_route in route.routes:
+                if hasattr(sub_route, "path"):
+                    routes.append(sub_route.path)
     assert "/health" in routes
     assert f"{settings.API_V1_STR}/info" in routes
     assert "/docs" in routes
     assert f"{settings.API_V1_STR}/openapi.json" in routes
+
 
 
 @pytest.mark.asyncio
