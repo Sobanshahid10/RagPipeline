@@ -1,12 +1,31 @@
--- Enable Required Extensions
+-- Enable Required Extensions in Specified Order
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "vector";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- 1. Documents Master Table
+-- 1. Tenants Table (Multi-tenant Foundation)
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    slug VARCHAR(50) UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Users Table (Role-Based Access & Auth)
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    email TEXT UNIQUE NOT NULL,
+    hashed_password TEXT NOT NULL,
+    roles TEXT[] DEFAULT '{viewer}',
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Documents Master Table
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     filename TEXT NOT NULL,
     file_type VARCHAR(20) NOT NULL,
     doc_hash VARCHAR(64) UNIQUE NOT NULL,
@@ -18,11 +37,11 @@ CREATE TABLE IF NOT EXISTS documents (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Chunks Table (Multimodal & Vector Embeddings)
+-- 4. Chunks Table (Multimodal & Vector Embeddings)
 CREATE TABLE IF NOT EXISTS chunks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
-    tenant_id UUID NOT NULL,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     chunk_index INT NOT NULL,
     content TEXT NOT NULL,
     contextual_summary TEXT,
@@ -34,16 +53,16 @@ CREATE TABLE IF NOT EXISTS chunks (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for Fast Search
-CREATE INDEX IF NOT EXISTS idx_chunks_embedding_hnsw ON chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+-- Vector & Keyword Indexes for Hybrid Search
+CREATE INDEX IF NOT EXISTS idx_chunks_hnsw ON chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX IF NOT EXISTS idx_chunks_sparse_tsv ON chunks USING gin (sparse_tsv);
 CREATE INDEX IF NOT EXISTS idx_chunks_tenant ON chunks(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_chunks_document ON chunks(document_id);
 
--- 3. Knowledge Graph Triples Table (GraphRAG)
+-- 5. Knowledge Graph Triples Table (GraphRAG)
 CREATE TABLE IF NOT EXISTS entity_triples (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     source_chunk_id UUID REFERENCES chunks(id) ON DELETE CASCADE,
     subject TEXT NOT NULL,
     predicate TEXT NOT NULL,
@@ -54,11 +73,11 @@ CREATE TABLE IF NOT EXISTS entity_triples (
 CREATE INDEX IF NOT EXISTS idx_triples_sub_obj ON entity_triples(subject, object);
 CREATE INDEX IF NOT EXISTS idx_triples_tenant ON entity_triples(tenant_id);
 
--- 4. Query Interactions & Evaluation Logs Table
+-- 6. Query Interactions & Evaluation Logs Table
 CREATE TABLE IF NOT EXISTS query_interactions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id UUID NOT NULL,
-    user_id UUID NOT NULL,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     session_id UUID NOT NULL,
     raw_query TEXT NOT NULL,
     rewritten_query TEXT,
@@ -76,7 +95,7 @@ CREATE TABLE IF NOT EXISTS query_interactions (
 CREATE INDEX IF NOT EXISTS idx_interactions_tenant ON query_interactions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_interactions_feedback ON query_interactions(user_feedback);
 
--- 5. RAGAS Eval Scores Table
+-- 7. RAGAS Eval Scores Table
 CREATE TABLE IF NOT EXISTS eval_scores (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     interaction_id UUID REFERENCES query_interactions(id) ON DELETE CASCADE,

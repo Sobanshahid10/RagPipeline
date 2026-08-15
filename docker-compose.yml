@@ -43,9 +43,32 @@ services:
     ports:
       - "8000:8000"
     environment:
+      PROJECT_NAME: "Production RAG Engine"
       DATABASE_URL: postgresql+asyncpg://rag_user:rag_password@postgres:5432/rag_db
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: super_secret_jwt_key_change_in_production_2026
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rag_celery_worker
+    restart: always
+    command: celery -A app.celery_app worker --loglevel=info -Q high_priority,low_priority --concurrency=4
+    environment:
+      PROJECT_NAME: "Production RAG Engine"
+      DATABASE_URL: postgresql+asyncpg://rag_user:rag_password@postgres:5432/rag_db
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: super_secret_jwt_key_change_in_production_2026
+      ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
     depends_on:
       postgres:
         condition: service_healthy

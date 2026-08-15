@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.config import settings
@@ -9,7 +9,7 @@ app = FastAPI(
     docs_url="/docs"
 )
 
-# Enable CORS for Next.js Frontend
+# Enable CORS for frontend clients
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,19 +18,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-class HealthCheck(BaseModel):
+
+class HealthResponse(BaseModel):
     status: str = "healthy"
     version: str = "1.0.0"
 
-@app.get("/health", response_model=HealthCheck, tags=["Health"])
-async def get_health():
-    return HealthCheck(status="healthy", version="1.0.0")
 
-@app.get(f"{settings.API_V1_STR}/info", tags=["System"])
-async def get_system_info():
-    return {
-        "project": settings.PROJECT_NAME,
-        "environment": "production-grade-stage-1",
-        "database": "PostgreSQL + pgvector",
-        "cache": "Redis Vector Cache"
-    }
+class InfoResponse(BaseModel):
+    project: str
+    environment: str
+
+
+@app.get("/health", response_model=HealthResponse, tags=["Health"])
+async def get_health():
+    return HealthResponse(status="healthy", version="1.0.0")
+
+
+@app.get(f"{settings.API_V1_STR}/info", response_model=InfoResponse, tags=["System"])
+async def get_info():
+    return InfoResponse(
+        project=settings.PROJECT_NAME,
+        environment="development"
+    )

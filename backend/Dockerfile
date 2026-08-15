@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system build dependencies and curl for healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \

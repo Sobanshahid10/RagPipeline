@@ -1,4 +1,4 @@
-# Python
+# Python & Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
@@ -39,13 +39,14 @@ coverage/
 # Environment Variables & Secrets
 .env
 .env.local
+.env.*.local
 
 # Node / Frontend
 node_modules/
 .next/
 out/
 
-# Database / Storage
+# Database & Volume Mounts
 *.sqlite3
 *.db
 postgres_data/
