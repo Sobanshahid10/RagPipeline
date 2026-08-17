@@ -200,7 +200,7 @@
 1. **Create `backend/app/ingestion/embedder.py`**. The async function `embed_text(text: str, redis_client) -> list[float]` must:
    - Compute `cache_key = f"emb:{hashlib.sha256(text.encode()).hexdigest()[:16]}"`
    - Check Redis for cached vector: `await redis_client.get(cache_key)`
-   - On cache miss: call OpenAI `text-embedding-3-small` (or local `sentence-transformers/all-mpnet-base-v2`)
+   - On cache miss: generate embedding via Gemini `text-embedding-004` (or local `sentence-transformers/all-mpnet-base-v2` / deterministic unit normalized fallback)
    - Store result in Redis with `TTL = 2592000` (30 days)
    - Return the embedding as `list[float]`
    - Batch variant: `embed_batch(texts: list[str]) -> list[list[float]]` — submit all texts in a single API call
@@ -243,7 +243,7 @@
 **Goal:** GraphRAG retrieval returns relevant chunks for a multi-hop query that vector search alone would miss.
 
 **Deliverables:**
-- `backend/app/ingestion/graph_extractor.py` — LLM-based triple extraction
+- `backend/app/ingestion/graph_extractor.py` — LLM-based triple extraction (Gemini / Groq / local fallback)
 - `backend/app/retrieval/graph_search.py` — recursive CTE multi-hop traversal
 - Updated `backend/app/ingestion/pipeline.py` — graph extraction wired after chunking
 - `backend/tests/test_graph.py` — 3 unit tests
@@ -251,7 +251,7 @@
 **Tasks:**
 
 1. **Create `backend/app/ingestion/graph_extractor.py`**. The async function `extract_triples(chunk_id: str, chunk_content: str, tenant_id: str, llm_client, db) -> None` must:
-   - Send this prompt to the LLM:
+   - Send prompt to Groq (`gpt-oss-120b` / `gpt-oss-20b`) or Gemini (`gemini-2.0-flash` / `gemini-1.5-flash`):
      ```
      Extract all entity relationships from the text below.
      Return ONLY a valid JSON array with this exact structure, no markdown:
@@ -901,7 +901,7 @@
 | Data Validation | Pydantic v2 | ≥2.6 |
 | Document Parsing | Docling | latest |
 | PII Masking | Microsoft Presidio | latest |
-| Embedding | OpenAI text-embedding-3-small | - |
+| Embedding | Gemini text-embedding-004 / Sentence-Transformers | - |
 | Vector Store | PostgreSQL 16 + pgvector HNSW | pg16 |
 | Lexical Search | PostgreSQL TSVector + BM25 | pg16 |
 | Knowledge Graph | PostgreSQL Recursive CTE | pg16 |
@@ -909,7 +909,7 @@
 | Compression | LongLLMLingua2 | latest |
 | Cache | Redis 7 + Semantic Vector Cache | 7-alpine |
 | Task Queue | Celery 5 + Redis | ≥5.3 |
-| LLM | Gemini 1.5 Pro / GPT-4o | - |
+| LLM | OpenAI GPT-OSS (120B / 20B on Groq) / Google Gemini (2.0/1.5 Flash) | - |
 | Frontend | Next.js 14 App Router + TypeScript | 14 |
 | Tracing | OpenTelemetry + Jaeger + LangFuse | - |
 | Evaluation | RAGAS + 200-pair Golden Dataset | latest |

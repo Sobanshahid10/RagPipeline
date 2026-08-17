@@ -24,6 +24,7 @@ from app.ingestion.parser import parse_document
 from app.ingestion.pii import mask_pii
 from app.ingestion.contextual import generate_contextual_summary
 from app.ingestion.chunker import semantic_chunk
+from app.ingestion.embedder import embed_batch
 
 logger = logging.getLogger(__name__)
 
@@ -71,10 +72,10 @@ async def _persist_chunks(
     tenant_id: str,
     chunks: List[Dict[str, Any]]
 ) -> None:
-    """Bulk insert extracted chunks into the PostgreSQL chunks table."""
+    """Bulk insert extracted chunks into the PostgreSQL chunks table with vector embeddings and TSVector."""
     conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
     try:
-        # Prepare records for copy or executemany
+        # Prepare records for executemany
         records = [
             (
                 doc_id,
@@ -84,7 +85,8 @@ async def _persist_chunks(
                 c.get("contextual_summary", ""),
                 c.get("page_number", 1),
                 json.dumps(c.get("bounding_box", {})),
-                c.get("token_count", 0)
+                c.get("token_count", 0),
+                f"[{','.join(map(str, c['embedding']))}]" if c.get("embedding") else None
             )
             for c in chunks
         ]
@@ -98,7 +100,7 @@ async def _persist_chunks(
             ) VALUES (
                 $1::uuid, $2::uuid, $3, $4,
                 $5, $6, $7::jsonb, $8,
-                NULL, NULL, NOW()
+                $9::vector, to_tsvector('english', $4), NOW()
             )
             """,
             records
@@ -170,7 +172,28 @@ async def run_pipeline(document_id: str, tenant_id: str, file_path: str) -> Dict
                 })
                 global_chunk_idx += 1
 
-        # Step 6 & 7: Insert chunks into database (embeddings added in Day 4)
+        # Step 6: Batch generate embeddings for all chunks with Redis caching
+        if all_chunks:
+            chunk_texts = [c["content"] for c in all_chunks]
+            redis_client = None
+            try:
+                import redis.asyncio as aioredis
+                redis_client = aioredis.from_url(settings.REDIS_URL)
+            except Exception as r_err:
+                logger.warning(f"Could not connect to Redis for embedding cache: {r_err}")
+
+            try:
+                embeddings = await embed_batch(chunk_texts, redis_client=redis_client)
+                for idx, emb in enumerate(embeddings):
+                    all_chunks[idx]["embedding"] = emb
+            finally:
+                if redis_client is not None:
+                    try:
+                        await redis_client.aclose()
+                    except Exception:
+                        pass
+
+        # Step 7: Bulk insert chunks into PostgreSQL
         if all_chunks:
             await _persist_chunks(document_id, tenant_id, all_chunks)
 

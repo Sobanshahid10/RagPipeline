@@ -82,9 +82,18 @@ def test_split_into_sentences_and_tokens():
 
 def test_document_api_routes_registered():
     """Test 6: Verify document upload and status endpoints are registered in FastAPI."""
-    routes = [r.path for r in app.routes]
-    assert "/api/v1/documents/upload" in routes
-    assert "/api/v1/documents/{document_id}" in routes
+    routes = set()
+    for r in app.routes:
+        if hasattr(r, "path"):
+            routes.add(r.path)
+        if hasattr(r, "routes"):
+            for sub_r in r.routes:
+                if hasattr(sub_r, "path"):
+                    routes.add(sub_r.path)
+    openapi_paths = app.openapi().get("paths", {})
+    all_paths = routes | set(openapi_paths.keys())
+    assert "/api/v1/documents/upload" in all_paths
+    assert "/api/v1/documents/{document_id}" in all_paths
 
 
 def test_celery_task_registration():
