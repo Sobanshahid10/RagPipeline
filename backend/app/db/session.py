@@ -1,5 +1,6 @@
+from __future__ import annotations
 import uuid
-from typing import AsyncGenerator, Optional
+from typing import AsyncGenerator, Optional, Union
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from app.config import settings
@@ -23,7 +24,7 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-async def set_tenant_context(session: AsyncSession, tenant_id: str | uuid.UUID) -> None:
+async def set_tenant_context(session: AsyncSession, tenant_id: Union[str, uuid.UUID]) -> None:
     """Sets PostgreSQL session variable for Row Level Security (RLS) tenant isolation."""
     await session.execute(
         text("SET LOCAL app.current_tenant_id = :tenant_id"),
