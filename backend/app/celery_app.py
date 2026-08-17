@@ -1,10 +1,18 @@
+"""
+Celery Application Module.
+
+Configures Celery distributed task worker connected to Redis broker/backend
+with routing configurations for high_priority and low_priority queues.
+"""
+
 from celery import Celery
 from app.config import settings
 
 celery_app = Celery(
     "rag_worker",
     broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
+    backend=settings.REDIS_URL,
+    include=["app.ingestion.pipeline"]
 )
 
 celery_app.conf.update(
@@ -14,6 +22,7 @@ celery_app.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_routes={
+        "app.ingestion.pipeline.process_document": {"queue": "high_priority"},
         "app.tasks.high_priority.*": {"queue": "high_priority"},
         "app.tasks.low_priority.*": {"queue": "low_priority"},
     },

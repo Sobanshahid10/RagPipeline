@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.config import settings
 from app.api.auth import router as auth_router
+from app.api.documents import router as documents_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -25,6 +26,7 @@ app.include_router(
     prefix=f"{settings.API_V1_STR}/auth",
     tags=["Authentication"]
 )
+app.include_router(documents_router)
 
 
 class HealthResponse(BaseModel):
@@ -48,4 +50,3 @@ async def get_info():
         project=settings.PROJECT_NAME,
         environment="development"
     )
-
