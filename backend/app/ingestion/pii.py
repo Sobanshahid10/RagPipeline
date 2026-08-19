@@ -44,7 +44,16 @@ def _init_presidio():
         try:
             from presidio_analyzer import AnalyzerEngine
             from presidio_anonymizer import AnonymizerEngine
-            _analyzer = AnalyzerEngine()
+            from presidio_analyzer.nlp_engine import NlpEngineProvider
+
+            configuration = {
+                "nlp_engine_name": "spacy",
+                "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+            }
+            provider = NlpEngineProvider(nlp_configuration=configuration)
+            nlp_engine = provider.create_engine()
+
+            _analyzer = AnalyzerEngine(nlp_engine=nlp_engine, supported_languages=["en"])
             _anonymizer = AnonymizerEngine()
             _presidio_available = True
             logger.info("Presidio Analyzer & Anonymizer initialized successfully.")
@@ -107,7 +116,9 @@ def mask_pii(text: str, language: str = "en") -> str:
             operators=operators
         )
 
-        return anonymized_result.text
+        # Apply secondary regex sweep to ensure high-confidence patterns like SSN/emails/cards are never missed
+        final_text = _regex_mask_pii(anonymized_result.text)
+        return final_text
 
     except Exception as e:
         logger.error(f"Error during Presidio PII anonymization: {e}. Applying regex fallback.")

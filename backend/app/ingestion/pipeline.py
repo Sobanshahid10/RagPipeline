@@ -5,13 +5,18 @@ Orchestrates the end-to-end background document ingestion lifecycle:
 1. Status transition -> 'processing'
 2. Docling Vision / Layout Parsing -> Pages & Bounding Boxes
 3. Presidio PII Masking -> Sanitized Content
-4. Anthropic Contextual Summary Generation -> Global Document Context
-5. Sentence-Aware Semantic Chunking -> Context-Injected Chunks
-6. Bulk Insertion into PostgreSQL `chunks` table
-7. Status transition -> 'indexed' (or 'failed' on fatal errors)
+4. Global Document Contextual Summary Generation
+5. Sentence-Aware Semantic Chunking -> Context-Injected Chunks with UUIDs
+6. Batch Vector Embedding Generation with Redis Caching
+7. Bulk Insertion into PostgreSQL `chunks` table
+8. Knowledge Graph Entity & Triple Extraction (Parallel GraphRAG via asyncio.gather)
+9. Status transition -> 'indexed' (or 'failed' on fatal errors)
 """
 
+from __future__ import annotations
+
 import os
+import uuid
 import json
 import asyncio
 import logging
@@ -25,6 +30,7 @@ from app.ingestion.pii import mask_pii
 from app.ingestion.contextual import generate_contextual_summary
 from app.ingestion.chunker import semantic_chunk
 from app.ingestion.embedder import embed_batch
+from app.ingestion.graph_extractor import extract_triples
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +84,7 @@ async def _persist_chunks(
         # Prepare records for executemany
         records = [
             (
+                c["id"],
                 doc_id,
                 tenant_id,
                 c["chunk_index"],
@@ -94,13 +101,13 @@ async def _persist_chunks(
         await conn.executemany(
             """
             INSERT INTO chunks (
-                document_id, tenant_id, chunk_index, content,
+                id, document_id, tenant_id, chunk_index, content,
                 contextual_summary, page_number, bounding_box, token_count,
                 embedding, sparse_tsv, created_at
             ) VALUES (
-                $1::uuid, $2::uuid, $3, $4,
-                $5, $6, $7::jsonb, $8,
-                $9::vector, to_tsvector('english', $4), NOW()
+                $1::uuid, $2::uuid, $3::uuid, $4, $5,
+                $6, $7, $8::jsonb, $9,
+                $10::vector, to_tsvector('english', $5), NOW()
             )
             """,
             records
@@ -143,7 +150,7 @@ async def run_pipeline(document_id: str, tenant_id: str, file_path: str) -> Dict
         # Step 4: Generate Global Contextual Summary
         summary = await generate_contextual_summary(combined_doc_text)
 
-        # Step 5: Semantic Chunking per Page
+        # Step 5: Semantic Chunking per Page with UUIDs
         all_chunks: List[Dict[str, Any]] = []
         global_chunk_idx = 0
 
@@ -163,6 +170,7 @@ async def run_pipeline(document_id: str, tenant_id: str, file_path: str) -> Dict
                 matched_bbox = p["bounding_boxes"][0] if p.get("bounding_boxes") else {}
 
                 all_chunks.append({
+                    "id": str(uuid.uuid4()),
                     "chunk_index": global_chunk_idx,
                     "content": chunk["content"],
                     "token_count": chunk["token_count"],
@@ -197,7 +205,20 @@ async def run_pipeline(document_id: str, tenant_id: str, file_path: str) -> Dict
         if all_chunks:
             await _persist_chunks(document_id, tenant_id, all_chunks)
 
-        # Step 8: Mark document as 'indexed'
+        # Step 8: Knowledge Graph Entity & Triple Extraction in Parallel
+        if all_chunks:
+            logger.info(f"Extracting knowledge graph triples for {len(all_chunks)} chunks (tenant={tenant_id})")
+            extraction_tasks = [
+                extract_triples(
+                    chunk_id=c["id"],
+                    chunk_content=c["content"],
+                    tenant_id=tenant_id
+                )
+                for c in all_chunks
+            ]
+            await asyncio.gather(*extraction_tasks, return_exceptions=True)
+
+        # Step 9: Mark document as 'indexed'
         await _update_document_status(document_id, status="indexed", total_pages=total_pages)
 
         logger.info(f"Ingestion successful for document={document_id}. Total chunks: {len(all_chunks)}")

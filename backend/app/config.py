@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,9 +13,9 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # LLM & Embedding API Providers (Groq GPT-OSS / Gemini / Local)
-    GEMINI_API_KEY: str | None = None
-    GROQ_API_KEY: str | None = None
-    OPENAI_API_KEY: str | None = None
+    GEMINI_API_KEY: Optional[str] = None
+    GROQ_API_KEY: Optional[str] = None
+    OPENAI_API_KEY: Optional[str] = None
     LLM_PROVIDER: str = "groq"  # "groq" (GPT-OSS) | "gemini" | "local"
     LLM_MODEL: str = "gpt-oss-120b"  # Groq GPT-OSS 120B / 20B or gemini-2.0-flash
     EMBEDDING_MODEL: str = "text-embedding-004"
