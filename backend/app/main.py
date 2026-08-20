@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from app.config import settings
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
+from app.api.retrieval import router as retrieval_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -27,6 +28,7 @@ app.include_router(
     tags=["Authentication"]
 )
 app.include_router(documents_router)
+app.include_router(retrieval_router)
 
 
 class HealthResponse(BaseModel):

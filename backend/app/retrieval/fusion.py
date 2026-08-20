@@ -1,40 +1,51 @@
-from typing import List, Dict, Any
+"""Rank fusion for heterogeneous retrieval result sets."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 
 def reciprocal_rank_fusion(
-    bm25_results: List[Dict[str, Any]],
-    vector_results: List[Dict[str, Any]],
+    result_sets: Mapping[str, Sequence[dict[str, Any]]] | Sequence[dict[str, Any]],
+    vector_results: Sequence[dict[str, Any]] | None = None,
     k: int = 60,
-    top_n: int = 10
-) -> List[Dict[str, Any]]:
+    top_n: int = 50,
+) -> list[dict[str, Any]]:
+    """Fuse ranked result lists with Reciprocal Rank Fusion.
+
+    The preferred input is ``{"bm25": [...], "vector": [...], "graph": [...]}``.
+    The legacy two-list form remains supported for callers built before Day 6.
     """
-    Combines ranked lists from BM25 sparse search and pgvector dense search
-    using Reciprocal Rank Fusion (RRF) formula:
-    RRF(d) = sum( 1 / (k + rank_i(d)) )
-    """
-    scores: Dict[str, float] = {}
-    chunk_map: Dict[str, Dict[str, Any]] = {}
+    if k < 0:
+        raise ValueError("k must be non-negative")
+    if top_n < 0:
+        raise ValueError("top_n must be non-negative")
 
-    # Process BM25 ranked items
-    for rank, item in enumerate(bm25_results):
-        chunk_id = str(item["id"])
-        scores[chunk_id] = scores.get(chunk_id, 0.0) + (1.0 / (k + (rank + 1)))
-        if chunk_id not in chunk_map:
-            chunk_map[chunk_id] = item
+    ranked_sets = (
+        result_sets.values()
+        if isinstance(result_sets, Mapping)
+        else (result_sets, vector_results or ())
+    )
+    scores: dict[str, float] = {}
+    chunks: dict[str, dict[str, Any]] = {}
 
-    # Process Vector ranked items
-    for rank, item in enumerate(vector_results):
-        chunk_id = str(item["id"])
-        scores[chunk_id] = scores.get(chunk_id, 0.0) + (1.0 / (k + (rank + 1)))
-        if chunk_id not in chunk_map:
-            chunk_map[chunk_id] = item
+    for ranked_list in ranked_sets:
+        seen_in_source: set[str] = set()
+        for rank, item in enumerate(ranked_list):
+            if "id" not in item:
+                continue
+            chunk_id = str(item["id"])
+            if chunk_id in seen_in_source:
+                continue
+            seen_in_source.add(chunk_id)
+            scores[chunk_id] = scores.get(chunk_id, 0.0) + 1.0 / (k + rank + 1)
+            chunks.setdefault(chunk_id, dict(item))
 
-    # Sort chunks by fused RRF score descending
-    sorted_chunk_ids = sorted(scores.keys(), key=lambda cid: scores[cid], reverse=True)
-
-    fused_results = []
-    for cid in sorted_chunk_ids[:top_n]:
-        chunk = chunk_map[cid].copy()
-        chunk["rrf_score"] = round(scores[cid], 5)
-        fused_results.append(chunk)
-
-    return fused_results
+    ordered_ids = sorted(scores, key=lambda chunk_id: (-scores[chunk_id], chunk_id))
+    fused: list[dict[str, Any]] = []
+    for chunk_id in ordered_ids[:top_n]:
+        chunk = chunks[chunk_id].copy()
+        chunk["rrf_score"] = scores[chunk_id]
+        fused.append(chunk)
+    return fused
