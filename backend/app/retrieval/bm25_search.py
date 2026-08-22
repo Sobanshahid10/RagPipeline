@@ -45,10 +45,13 @@ async def bm25_search(
     async def _execute_search(conn: Any) -> List[Dict[str, Any]]:
         rows = await conn.fetch(
             """
-            SELECT id, document_id, content, contextual_summary, page_number, bounding_box,
-                   ts_rank_cd(sparse_tsv, query) AS bm25_score
-            FROM chunks, plainto_tsquery('english', $1) AS query
-            WHERE sparse_tsv @@ query AND tenant_id = $2::uuid
+            SELECT c.id, c.document_id, c.content, c.contextual_summary, c.page_number,
+                   c.bounding_box, d.filename AS source_filename,
+                   ts_rank_cd(c.sparse_tsv, query) AS bm25_score
+            FROM chunks c
+            JOIN documents d ON d.id = c.document_id,
+                 plainto_tsquery('english', $1) AS query
+            WHERE c.sparse_tsv @@ query AND c.tenant_id = $2::uuid
             ORDER BY bm25_score DESC
             LIMIT $3;
             """,
@@ -73,6 +76,7 @@ async def bm25_search(
                 "contextual_summary": r["contextual_summary"] or "",
                 "page_number": r["page_number"] or 1,
                 "bounding_box": bbox or {},
+                "source_filename": r.get("source_filename", ""),
                 "bm25_score": round(float(r["bm25_score"]), 5) if r["bm25_score"] is not None else 0.0
             })
         return formatted_rows

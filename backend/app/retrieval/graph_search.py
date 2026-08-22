@@ -157,9 +157,11 @@ async def graph_search(
         JOIN graph_traverse g ON e.subject = g.object
         WHERE g.depth < $3 AND e.tenant_id = $2::uuid
     )
-    SELECT DISTINCT c.id, c.document_id, c.content, c.contextual_summary, c.bounding_box, c.page_number
+    SELECT DISTINCT c.id, c.document_id, c.content, c.contextual_summary, c.bounding_box,
+                    c.page_number, d.filename AS source_filename
     FROM graph_traverse gt
     JOIN chunks c ON c.id = gt.source_chunk_id
+    JOIN documents d ON d.id = c.document_id
     LIMIT $4;
     """
 
@@ -191,6 +193,7 @@ async def graph_search(
                         "contextual_summary": summary,
                         "page_number": page_num,
                         "bounding_box": bbox or {},
+                        "source_filename": (r.get("source_filename", "") if hasattr(r, "get") else ""),
                         "graph_score": 1.0,  # Standard placeholder score for graph hits
                         "source": "graph"
                     }

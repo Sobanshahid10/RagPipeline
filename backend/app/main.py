@@ -5,6 +5,7 @@ from app.config import settings
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.api.retrieval import router as retrieval_router
+from app.api.query import router as query_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -29,6 +30,7 @@ app.include_router(
 )
 app.include_router(documents_router)
 app.include_router(retrieval_router)
+app.include_router(query_router)
 
 
 class HealthResponse(BaseModel):

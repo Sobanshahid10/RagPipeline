@@ -54,11 +54,13 @@ async def vector_search(
 
         rows = await conn.fetch(
             """
-            SELECT id, document_id, content, contextual_summary, page_number, bounding_box,
-                   1 - (embedding <=> $1::vector) AS similarity_score
-            FROM chunks
-            WHERE tenant_id = $2::uuid AND embedding IS NOT NULL
-            ORDER BY embedding <=> $1::vector ASC
+            SELECT c.id, c.document_id, c.content, c.contextual_summary, c.page_number,
+                   c.bounding_box, d.filename AS source_filename,
+                   1 - (c.embedding <=> $1::vector) AS similarity_score
+            FROM chunks c
+            JOIN documents d ON d.id = c.document_id
+            WHERE c.tenant_id = $2::uuid AND c.embedding IS NOT NULL
+            ORDER BY c.embedding <=> $1::vector ASC
             LIMIT $3;
             """,
             vector_str,
@@ -82,6 +84,7 @@ async def vector_search(
                 "contextual_summary": r["contextual_summary"] or "",
                 "page_number": r["page_number"] or 1,
                 "bounding_box": bbox or {},
+                "source_filename": r.get("source_filename", ""),
                 "similarity_score": round(float(r["similarity_score"]), 5) if r["similarity_score"] is not None else 0.0
             })
         return formatted_rows
