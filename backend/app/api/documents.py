@@ -9,7 +9,7 @@ import os
 import hashlib
 import uuid
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status
 from pydantic import BaseModel
 import asyncpg
@@ -130,6 +130,45 @@ async def upload_document(
         await conn.close()
 
 
+@router.get("", response_model=List[DocumentStatusResponse])
+async def list_documents(
+    tenant_id: Optional[str] = None
+):
+    """
+    List all uploaded documents with status and chunk counts.
+    """
+    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
+    try:
+        query = """
+            SELECT d.id, d.filename, d.file_type, d.status, d.total_pages, d.created_at, d.updated_at,
+                   COUNT(c.id) AS chunk_count
+            FROM documents d
+            LEFT JOIN chunks c ON d.id = c.document_id
+        """
+        params = []
+        if tenant_id:
+            query += " WHERE d.tenant_id = $1::uuid"
+            params.append(tenant_id)
+        query += " GROUP BY d.id ORDER BY d.created_at DESC"
+
+        docs = await conn.fetch(query, *params)
+        return [
+            DocumentStatusResponse(
+                document_id=str(doc["id"]),
+                filename=doc["filename"],
+                file_type=doc["file_type"],
+                status=doc["status"],
+                total_pages=doc["total_pages"] or 0,
+                chunk_count=doc["chunk_count"] or 0,
+                created_at=doc["created_at"].isoformat(),
+                updated_at=doc["updated_at"].isoformat()
+            )
+            for doc in docs
+        ]
+    finally:
+        await conn.close()
+
+
 @router.get("/{document_id}", response_model=DocumentStatusResponse)
 async def get_document_status(document_id: str):
     """
@@ -168,3 +207,40 @@ async def get_document_status(document_id: str):
 
     finally:
         await conn.close()
+
+
+@router.get("/{document_id}/file")
+async def get_document_file(document_id: str):
+    """
+    Serve the raw document file (e.g. PDF) for client-side rendering in PDFViewer.
+    """
+    from fastapi.responses import FileResponse
+
+    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
+    try:
+        doc = await conn.fetchrow(
+            "SELECT storage_uri, filename, file_type FROM documents WHERE id = $1::uuid",
+            document_id
+        )
+        if not doc:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Document with ID {document_id} not found."
+            )
+
+        file_path = doc["storage_uri"]
+        if not os.path.exists(file_path):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document file not found on disk."
+            )
+
+        media_type = "application/pdf" if doc["file_type"] == "pdf" else "application/octet-stream"
+        return FileResponse(
+            file_path,
+            media_type=media_type,
+            filename=doc["filename"]
+        )
+    finally:
+        await conn.close()
+
