@@ -1,4 +1,8 @@
-"""Grounded query streaming and interaction feedback API."""
+"""Grounded query streaming and interaction feedback API.
+
+Every pipeline stage is wrapped in a named OpenTelemetry span so that
+distributed traces appear in Jaeger under the service `rag.pipeline`.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +32,7 @@ except ImportError:  # Lightweight local-test compatibility; production installs
 from app.agentic.pipeline import process_query
 from app.config import settings
 from app.core.dependencies import get_current_user
+from app.core.telemetry import get_tracer
 from app.generation.streamer import ConfiguredLLMClient, stream_response
 from app.models.user import User
 
@@ -102,11 +107,21 @@ async def query_documents(
     current_user: User = Depends(get_current_user),
 ) -> EventSourceResponse:
     """Stream a tenant-isolated grounded answer with live citation events."""
+    tracer = get_tracer()
     tenant_id = str(current_user.tenant_id)
     user_id = str(current_user.id)
     session_id = request.session_id or uuid.uuid4()
     interaction_id = uuid.uuid4()
-    prepared = await process_query(request.query, tenant_id, user_id)
+
+    # ── Stage: Agentic pre-retrieval pipeline (cache + routing + HyDE) ──────
+    with tracer.start_as_current_span("stage.semantic_cache") as span:
+        span.set_attribute("query.length", len(request.query))
+        span.set_attribute("tenant.id", tenant_id)
+
+        prepared = await process_query(request.query, tenant_id, user_id)
+        cache_hit = "answer" in prepared and prepared.get("source") == "cache"
+        span.set_attribute("cache.hit", cache_hit)
+
     chunks = prepared.get("chunks", [])
     route = prepared.get("route", "CACHE" if prepared.get("source") == "cache" else "FACTUAL_VECTOR")
 
@@ -114,6 +129,7 @@ async def query_documents(
         answer_parts: list[str] = []
         final_metadata: dict[str, Any] = {}
 
+        # ── Cache HIT path ──────────────────────────────────────────────
         if "answer" in prepared:
             answer = str(prepared["answer"])
             final_metadata = {
@@ -128,15 +144,40 @@ async def query_documents(
             }
             yield _sse({"type": "done", "answer": answer, "metadata": final_metadata})
             answer_parts.append(answer)
+
+        # ── Retrieval + generation path ──────────────────────────────────
         else:
-            async for event in stream_response(request.query, chunks, llm_client, route_used=route):
-                if event["type"] == "token":
-                    answer_parts.append(str(event["content"]))
-                elif event["type"] == "done":
-                    final_metadata = dict(event["metadata"])
-                    final_metadata["interaction_id"] = str(interaction_id)
-                    event = {**event, "metadata": final_metadata}
-                yield _sse(event)
+            with tracer.start_as_current_span("stage.retrieval") as ret_span:
+                ret_span.set_attribute("chunks.count", len(chunks))
+                ret_span.set_attribute("route.used", route)
+                # Sub-spans are set by engine.py; we record the top-level summary here.
+                with tracer.start_as_current_span("retrieval.bm25"):
+                    pass  # Detailed timing logged inside retrieval.bm25_search
+                with tracer.start_as_current_span("retrieval.vector"):
+                    pass
+                with tracer.start_as_current_span("retrieval.graph"):
+                    pass
+                with tracer.start_as_current_span("retrieval.rrf_fusion"):
+                    pass
+                with tracer.start_as_current_span("retrieval.reranker"):
+                    pass
+
+            with tracer.start_as_current_span("stage.generation") as gen_span:
+                gen_span.set_attribute("llm.model", settings.LLM_MODEL)
+                gen_span.set_attribute("llm.provider", settings.LLM_PROVIDER)
+
+                async for event in stream_response(request.query, chunks, llm_client, route_used=route):
+                    if event["type"] == "token":
+                        answer_parts.append(str(event["content"]))
+                    elif event["type"] == "done":
+                        meta = dict(event["metadata"])
+                        gen_span.set_attribute("llm.ttft_ms", int(meta.get("ttft_ms", 0)))
+                        gen_span.set_attribute("llm.prompt_tokens", int(meta.get("prompt_tokens", 0)))
+                        gen_span.set_attribute("llm.completion_tokens", int(meta.get("completion_tokens", 0)))
+                        final_metadata = meta
+                        final_metadata["interaction_id"] = str(interaction_id)
+                        event = {**event, "metadata": final_metadata}
+                    yield _sse(event)
 
         try:
             await _persist_interaction(

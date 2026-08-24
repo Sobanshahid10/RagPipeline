@@ -11,7 +11,8 @@ import {
   LogOut, 
   Sparkles, 
   Database,
-  ExternalLink
+  ExternalLink,
+  BarChart3
 } from "lucide-react";
 
 export const Sidebar: React.FC = () => {
@@ -28,6 +29,11 @@ export const Sidebar: React.FC = () => {
       name: "Document Library",
       href: "/documents",
       icon: FileText,
+    },
+    {
+      name: "Admin Dashboard",
+      href: "/dashboard",
+      icon: BarChart3,
     },
   ];
 

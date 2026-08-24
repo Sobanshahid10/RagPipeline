@@ -6,12 +6,20 @@ from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.api.retrieval import router as retrieval_router
 from app.api.query import router as query_router
+from app.api.admin import router as admin_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     docs_url="/docs"
 )
+
+# ── OpenTelemetry tracing ────────────────────────────────────────────────────
+try:
+    from app.core.telemetry import setup_telemetry
+    _tracer = setup_telemetry(app)
+except Exception:
+    pass  # Tracing is non-critical; boot without it if deps are missing.
 
 # Enable CORS for frontend clients
 app.add_middleware(
@@ -31,6 +39,7 @@ app.include_router(
 app.include_router(documents_router)
 app.include_router(retrieval_router)
 app.include_router(query_router)
+app.include_router(admin_router)
 
 
 class HealthResponse(BaseModel):
