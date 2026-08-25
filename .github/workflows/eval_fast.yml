@@ -1,0 +1,20 @@
+name: Fast Eval Gate
+on: [pull_request]
+jobs:
+  fast-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with: {python-version: '3.11'}
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run unit tests
+        run: cd backend && PYTHONPATH=. pytest tests/ -v --tb=short -x
+      - name: Retrieval recall@5 check
+        run: python evaluation/assert_thresholds.py --metric recall_at_5 --min 0.75
+      - name: Latency budget check
+        run: python evaluation/assert_thresholds.py --metric max_ttft_ms --max 500
+      - name: Citation integrity check
+        run: python evaluation/assert_thresholds.py --metric citation_parse_success_rate --min 0.95

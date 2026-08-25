@@ -1,0 +1,12 @@
+{
+  "source_file": "evaluation/results/ragas_20260825_182436.json",
+  "timestamp": "2026-08-25T18:24:36.743560+00:00",
+  "sample_count": 10,
+  "metrics": {
+    "faithfulness": 0.9931618215118215,
+    "answer_relevancy": 1.0,
+    "context_precision": 1.0,
+    "context_recall": 1.0
+  },
+  "status": "UPLOADED"
+}

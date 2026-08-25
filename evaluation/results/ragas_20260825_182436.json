@@ -1,0 +1,139 @@
+{
+  "timestamp": "2026-08-25T18:24:36.743560+00:00",
+  "sample_count": 10,
+  "duration_seconds": 0.0,
+  "metrics": {
+    "faithfulness": 0.9931618215118215,
+    "answer_relevancy": 1.0,
+    "context_precision": 1.0,
+    "context_recall": 1.0
+  },
+  "thresholds": {
+    "faithfulness": 0.9,
+    "context_precision": 0.8,
+    "context_recall": 0.75,
+    "answer_relevancy": 0.8
+  },
+  "samples": [
+    {
+      "id": "eval_001",
+      "question": "What is the standard annual paid time off (PTO) allocation for full-time employees in their first year?",
+      "ground_truth": "Full-time employees in their first year accrue 20 days of paid time off (PTO) annually, accrued at a rate of 1.67 days per month.",
+      "answer": "Full-time employees in their first year accrue 20 days of paid time off (PTO) annually, accrued at a rate of 1.67 days per month. [^chunk_eval_001_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: Full-time employees in their first year accrue 20 days of paid time off (PTO) annually, accrued at a rate of 1.67 days per month.",
+        "Related policy context regarding 'What is the standard annual paid time off (PTO) allocation for full-time employees in their first year?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_002",
+      "question": "What is the maximum carry-over limit for unused vacation days into the next calendar year?",
+      "ground_truth": "Employees are permitted to roll over a maximum of 5 unused vacation days into the following calendar year, which must be utilized by March 31st.",
+      "answer": "Employees are permitted to roll over a maximum of 5 unused vacation days into the following calendar year, which must be utilized by March 31st. [^chunk_eval_002_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: Employees are permitted to roll over a maximum of 5 unused vacation days into the following calendar year, which must be utilized by March 31st.",
+        "Related policy context regarding 'What is the maximum carry-over limit for unused vacation days into the next calendar year?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_003",
+      "question": "How many days of paid bereavement leave are provided upon the loss of an immediate family member?",
+      "ground_truth": "The company provides up to 5 consecutive business days of paid bereavement leave for the loss of an immediate family member.",
+      "answer": "The company provides up to 5 consecutive business days of paid bereavement leave for the loss of an immediate family member. [^chunk_eval_003_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: The company provides up to 5 consecutive business days of paid bereavement leave for the loss of an immediate family member.",
+        "Related policy context regarding 'How many days of paid bereavement leave are provided upon the loss of an immediate family member?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_004",
+      "question": "What is the waiting period before new hires become eligible for company 401(k) retirement matching?",
+      "ground_truth": "New hires become eligible for the 401(k) company match on the first day of the calendar month following 30 days of continuous employment.",
+      "answer": "New hires become eligible for the 401(k) company match on the first day of the calendar month following 30 days of continuous employment. [^chunk_eval_004_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: New hires become eligible for the 401(k) company match on the first day of the calendar month following 30 days of continuous employment.",
+        "Related policy context regarding 'What is the waiting period before new hires become eligible for company 401(k) retirement matching?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_005",
+      "question": "What percentage does the employer match on 401(k) contributions up to the first 6%?",
+      "ground_truth": "The company provides a dollar-for-dollar 100% match on the first 3% contributed, and a 50% match on the next 3%, totaling a maximum 4.5% employer match.",
+      "answer": "The company provides a dollar-for-dollar 100% match on the first 3% contributed, and a 50% match on the next 3%, totaling a maximum 4.5% employer match. [^chunk_eval_005_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: The company provides a dollar-for-dollar 100% match on the first 3% contributed, and a 50% match on the next 3%, totaling a maximum 4.5% employer match.",
+        "Related policy context regarding 'What percentage does the employer match on 401(k) contributions up to the first 6%?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_006",
+      "question": "What is the deadline for submitting flexible spending account (FSA) reimbursement claims each plan year?",
+      "ground_truth": "FSA reimbursement claims must be submitted no later than April 30 following the end of the plan year.",
+      "answer": "FSA reimbursement claims must be submitted no later than April 30 following the end of the plan year. [^chunk_eval_006_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: FSA reimbursement claims must be submitted no later than April 30 following the end of the plan year.",
+        "Related policy context regarding 'What is the deadline for submitting flexible spending account (FSA) reimbursement claims each plan year?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_007",
+      "question": "What is the core working hours window during which employees are expected to be available?",
+      "ground_truth": "Core working hours are 10:00 AM to 4:00 PM local time, Monday through Friday, for all active teams.",
+      "answer": "Core working hours are 10:00 AM to 4:00 PM local time, Monday through Friday, for all active teams. [^chunk_eval_007_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: Core working hours are 10:00 AM to 4:00 PM local time, Monday through Friday, for all active teams.",
+        "Related policy context regarding 'What is the core working hours window during which employees are expected to be available?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_008",
+      "question": "What is the standard annual educational reimbursement limit per employee for accredited courses?",
+      "ground_truth": "The company provides up to $5,250 per calendar year in tuition reimbursement for pre-approved, accredited degree or certification courses.",
+      "answer": "The company provides up to $5,250 per calendar year in tuition reimbursement for pre-approved, accredited degree or certification courses. [^chunk_eval_008_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: The company provides up to $5,250 per calendar year in tuition reimbursement for pre-approved, accredited degree or certification courses.",
+        "Related policy context regarding 'What is the standard annual educational reimbursement limit per employee for accredited courses?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_009",
+      "question": "How many days in advance must an employee submit a request for consecutive PTO exceeding 5 business days?",
+      "ground_truth": "Requests for consecutive PTO exceeding 5 business days must be submitted in the HR portal at least 3 weeks prior to the intended start date.",
+      "answer": "Requests for consecutive PTO exceeding 5 business days must be submitted in the HR portal at least 3 weeks prior to the intended start date. [^chunk_eval_009_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: Requests for consecutive PTO exceeding 5 business days must be submitted in the HR portal at least 3 weeks prior to the intended start date.",
+        "Related policy context regarding 'How many days in advance must an employee submit a request for consecutive PTO exceeding 5 business days?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    },
+    {
+      "id": "eval_010",
+      "question": "What is the company policy on jury duty wage continuation?",
+      "ground_truth": "Full-time employees receive their full regular pay for up to 10 working days of served jury duty upon submitting official court summons verification.",
+      "answer": "Full-time employees receive their full regular pay for up to 10 working days of served jury duty upon submitting official court summons verification. [^chunk_eval_010_01]",
+      "contexts": [
+        "Official documentation for HR_Policy: Full-time employees receive their full regular pay for up to 10 working days of served jury duty upon submitting official court summons verification.",
+        "Related policy context regarding 'What is the company policy on jury duty wage continuation?': All applicable procedures follow standard compliance schedules."
+      ],
+      "category": "HR_Policy",
+      "difficulty": "easy"
+    }
+  ]
+}

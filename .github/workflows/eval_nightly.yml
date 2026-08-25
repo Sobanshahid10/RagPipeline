@@ -1,0 +1,20 @@
+name: Nightly RAGAS Full Evaluation
+on:
+  schedule:
+    - cron: '0 2 * * *'
+jobs:
+  ragas-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Full RAGAS Suite
+        run: python evaluation/run_ragas.py --dataset evaluation/golden_dataset.json
+        env:
+          API_BASE_URL: ${{ secrets.STAGING_API_URL }}
+          API_TOKEN: ${{ secrets.STAGING_API_TOKEN }}
+      - name: Assert faithfulness > 0.90
+        run: python evaluation/assert_thresholds.py --metric faithfulness --min 0.90
+      - name: Assert context precision > 0.80
+        run: python evaluation/assert_thresholds.py --metric context_precision --min 0.80
+      - name: Upload results
+        run: python evaluation/upload_results.py
