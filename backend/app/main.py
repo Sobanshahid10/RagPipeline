@@ -21,6 +21,12 @@ try:
 except Exception:
     pass  # Tracing is non-critical; boot without it if deps are missing.
 
+from app.core.security_middleware import RateLimitingMiddleware, SecurityHeadersMiddleware
+
+# Security Hardening Middlewares
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitingMiddleware, requests_per_minute=60, window_seconds=60)
+
 # Enable CORS for frontend clients
 app.add_middleware(
     CORSMiddleware,

@@ -1,0 +1,21 @@
+rag_pipeline:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'localhost') }}"
+      user: "{{ env_var('DBT_USER', 'rag_user') }}"
+      password: "{{ env_var('DBT_PASSWORD', 'rag_password') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'rag_db') }}"
+      schema: public
+      threads: 4
+    prod:
+      type: postgres
+      host: "{{ env_var('DBT_HOST', 'postgres') }}"
+      user: "{{ env_var('DBT_USER', 'rag_user') }}"
+      password: "{{ env_var('DBT_PASSWORD', 'rag_password') }}"
+      port: "{{ env_var('DBT_PORT', '5432') | int }}"
+      dbname: "{{ env_var('DBT_DBNAME', 'rag_db') }}"
+      schema: public
+      threads: 8

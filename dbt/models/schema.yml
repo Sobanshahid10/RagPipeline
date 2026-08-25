@@ -1,0 +1,62 @@
+version: 2
+
+sources:
+  - name: rag_raw
+    schema: public
+    tables:
+      - name: query_interactions
+        description: "Raw interaction logs capturing queries, latency, tokens, route, and feedback."
+        columns:
+          - name: id
+            tests:
+              - unique
+              - not_null
+          - name: tenant_id
+            tests:
+              - not_null
+      - name: eval_scores
+        description: "Raw RAGAS and automated evaluation scores per interaction."
+        columns:
+          - name: id
+            tests:
+              - unique
+              - not_null
+          - name: interaction_id
+            tests:
+              - not_null
+
+models:
+  - name: stg_query_interactions
+    description: "Cleaned staging view of query interactions within the last 90 days."
+    columns:
+      - name: id
+        tests:
+          - unique
+          - not_null
+      - name: query_date
+        tests:
+          - not_null
+
+  - name: stg_eval_scores
+    description: "Cleaned staging view of evaluation metrics within the last 90 days."
+    columns:
+      - name: id
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_daily_performance
+    description: "Aggregated daily query volume, latency percentiles (p50/p95/p99), token consumption, and cache hit rates."
+    columns:
+      - name: query_date
+        tests:
+          - unique
+          - not_null
+
+  - name: rpt_eval_dashboard
+    description: "Aggregated evaluation reporting model tracking faithfulness, context quality, and hallucination rates."
+    columns:
+      - name: eval_date
+        tests:
+          - unique
+          - not_null

@@ -42,7 +42,7 @@ llm_client = ConfiguredLLMClient()
 
 
 class QueryRequest(BaseModel):
-    query: str = Field(min_length=1, max_length=4000)
+    query: str = Field(min_length=1, max_length=1000)
     session_id: uuid.UUID | None = None
 
 
