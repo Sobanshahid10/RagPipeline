@@ -72,6 +72,7 @@ async def process_query(
     llm_client: Optional[Any] = None,
     embedder: Optional[Any] = None,
     cache: Optional[SemanticCache] = None,
+    bypass_cache: bool = False,
 ) -> dict[str, Any]:
     """
     Execute the end-to-end agentic pre-retrieval pipeline:
@@ -115,7 +116,7 @@ async def process_query(
         query_embedding = await app_embedder.embed_text(cleaned_query, redis_client=redis_client)
 
     # 2. Check Semantic Cache
-    cached_answer = await semantic_cache.get(query_embedding)
+    cached_answer = None if bypass_cache else await semantic_cache.get(query_embedding)
     if cached_answer is not None:
         latency_ms = round((perf_counter() - started) * 1000, 2)
         logger.info("Semantic cache HIT for tenant=%s query='%s' (%.2f ms)", tenant_id, cleaned_query, latency_ms)

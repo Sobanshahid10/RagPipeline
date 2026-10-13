@@ -17,6 +17,7 @@ eggs/
 .eggs/
 lib/
 lib64/
+!frontend/lib/
 parts/
 sdist/
 var/
@@ -50,5 +51,22 @@ out/
 # Database & Volume Mounts
 *.sqlite3
 *.db
+*.ses
+:memory:.ses
 postgres_data/
 redis_data/
+
+# Personal source material (never commit)
+storage/private/
+
+# Document uploads and local runtime files
+storage/uploads/
+backend/storage/
+backend/storage/uploads/
+*.sqlite3-journal
+
+# Evaluation test runs & scratch results
+battery_results.json
+evaluation_test_run*.json
+*.tsbuildinfo
+next-env.d.ts

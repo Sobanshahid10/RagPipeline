@@ -43,7 +43,10 @@ llm_client = ConfiguredLLMClient()
 
 class QueryRequest(BaseModel):
     query: str = Field(min_length=1, max_length=1000)
+    model: Literal["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite", "openai/gpt-oss-120b", "openai/gpt-oss-20b"] | None = None
     session_id: uuid.UUID | None = None
+    include_context: bool = False
+    bypass_cache: bool = False
 
 
 class FeedbackRequest(BaseModel):
@@ -118,7 +121,10 @@ async def query_documents(
         span.set_attribute("query.length", len(request.query))
         span.set_attribute("tenant.id", tenant_id)
 
-        prepared = await process_query(request.query, tenant_id, user_id)
+        if request.bypass_cache or request.model is not None:
+            prepared = await process_query(request.query, tenant_id, user_id, bypass_cache=True)
+        else:
+            prepared = await process_query(request.query, tenant_id, user_id)
         cache_hit = "answer" in prepared and prepared.get("source") == "cache"
         span.set_attribute("cache.hit", cache_hit)
 
@@ -128,6 +134,9 @@ async def query_documents(
     async def events() -> AsyncIterator[dict[str, str]]:
         answer_parts: list[str] = []
         final_metadata: dict[str, Any] = {}
+
+        if request.include_context:
+            yield _sse({"type": "retrieval", "chunks": chunks})
 
         # ── Cache HIT path ──────────────────────────────────────────────
         if "answer" in prepared:
@@ -163,21 +172,26 @@ async def query_documents(
                     pass
 
             with tracer.start_as_current_span("stage.generation") as gen_span:
-                gen_span.set_attribute("llm.model", settings.LLM_MODEL)
-                gen_span.set_attribute("llm.provider", settings.LLM_PROVIDER)
+                gen_span.set_attribute("llm.model", request.model or settings.LLM_MODEL)
+                gen_span.set_attribute("llm.provider", "gemini" if request.model and request.model.startswith("gemini-") else "groq" if request.model else settings.LLM_PROVIDER)
 
-                async for event in stream_response(request.query, chunks, llm_client, route_used=route):
-                    if event["type"] == "token":
-                        answer_parts.append(str(event["content"]))
-                    elif event["type"] == "done":
-                        meta = dict(event["metadata"])
-                        gen_span.set_attribute("llm.ttft_ms", int(meta.get("ttft_ms", 0)))
-                        gen_span.set_attribute("llm.prompt_tokens", int(meta.get("prompt_tokens", 0)))
-                        gen_span.set_attribute("llm.completion_tokens", int(meta.get("completion_tokens", 0)))
-                        final_metadata = meta
-                        final_metadata["interaction_id"] = str(interaction_id)
-                        event = {**event, "metadata": final_metadata}
-                    yield _sse(event)
+                selected_client = ConfiguredLLMClient(request.model) if request.model else llm_client
+                try:
+                    async for event in stream_response(request.query, chunks, selected_client, route_used=route):
+                        if event["type"] == "token":
+                            answer_parts.append(str(event["content"]))
+                        elif event["type"] == "done":
+                            meta = dict(event["metadata"])
+                            gen_span.set_attribute("llm.ttft_ms", int(meta.get("ttft_ms", 0)))
+                            gen_span.set_attribute("llm.prompt_tokens", int(meta.get("prompt_tokens", 0)))
+                            gen_span.set_attribute("llm.completion_tokens", int(meta.get("completion_tokens", 0)))
+                            final_metadata = meta
+                            final_metadata["interaction_id"] = str(interaction_id)
+                            event = {**event, "metadata": final_metadata}
+                        yield _sse(event)
+                except RuntimeError as exc:
+                    yield _sse({"type": "error", "message": str(exc)})
+                    return
 
         try:
             await _persist_interaction(

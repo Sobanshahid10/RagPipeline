@@ -165,7 +165,7 @@ async def classify_route(query: str, llm_client: Optional[Any] = None) -> str:
                 "Content-Type": "application/json",
             }
             payload = {
-                "model": settings.LLM_MODEL if "gpt-oss" in settings.LLM_MODEL or "llama" in settings.LLM_MODEL else "llama-3.3-70b-versatile",
+                "model": settings.LLM_MODEL if settings.LLM_MODEL.startswith("openai/gpt-oss-") else "openai/gpt-oss-120b",
                 "messages": [
                     {"role": "system", "content": "You are a precise query routing classifier."},
                     {"role": "user", "content": prompt},
@@ -186,14 +186,13 @@ async def classify_route(query: str, llm_client: Optional[Any] = None) -> str:
     if settings.GEMINI_API_KEY:
         try:
             import httpx
-            model_name = settings.LLM_MODEL if "gemini" in settings.LLM_MODEL else "gemini-2.0-flash"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={settings.GEMINI_API_KEY}"
+            model_name = settings.LLM_MODEL if settings.LLM_MODEL.startswith("gemini-") else "gemini-3.8-flash"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.0},
             }
             async with httpx.AsyncClient(timeout=30.0) as http_client:
-                resp = await http_client.post(url, json=payload)
+                resp = await http_client.post(url, json=payload, headers={"x-goog-api-key": settings.GEMINI_API_KEY})
                 if resp.status_code == 200:
                     data = resp.json()
                     candidates = data.get("candidates", [])

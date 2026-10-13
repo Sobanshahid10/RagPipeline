@@ -33,41 +33,115 @@ def get_docling_converter() -> Optional[Any]:
 
 
 def _fallback_pdf_parser(file_path: str) -> List[Dict[str, Any]]:
-    """Lightweight fallback parser when Docling is unavailable."""
-    pages: List[Dict[str, Any]] = []
-    try:
-        from pypdf import PdfReader
-        reader = PdfReader(file_path)
-        for page_idx, page in enumerate(reader.pages):
-            text = page.extract_text() or ""
-            pages.append({
-                "page_number": page_idx + 1,
-                "content": text.strip(),
-                "bounding_boxes": [
-                    {
-                        "text": text[:100] if text else "",
+    """Robust fallback parser supporting PyMuPDF (fitz), pypdf, python-docx, and plain text."""
+    lower_path = file_path.lower()
+
+    # 1. PDF Handling
+    if lower_path.endswith(".pdf"):
+        pages: List[Dict[str, Any]] = []
+
+        # Strategy A: PyMuPDF (fast, high-fidelity bounding box extraction)
+        try:
+            import fitz
+            doc = fitz.open(file_path)
+            for page_idx, page in enumerate(doc):
+                text = (page.get_text("text") or "").replace("\x00", "").strip()
+                rect = page.rect
+                width = max(float(rect.width), 1.0)
+                height = max(float(rect.height), 1.0)
+                bboxes: List[Dict[str, Any]] = []
+
+                try:
+                    for b in page.get_text("blocks"):
+                        # b is (x0, y0, x1, y1, text, block_no, block_type)
+                        if len(b) >= 7 and b[6] == 0:
+                            b_text = (b[4] or "").replace("\x00", "").strip()
+                            if b_text:
+                                bboxes.append({
+                                    "text": b_text[:100],
+                                    "xmin": round(max(0.0, min(1.0, float(b[0]) / width)), 4),
+                                    "ymin": round(max(0.0, min(1.0, float(b[1]) / height)), 4),
+                                    "xmax": round(max(0.0, min(1.0, float(b[2]) / width)), 4),
+                                    "ymax": round(max(0.0, min(1.0, float(b[3]) / height)), 4),
+                                })
+                except Exception:
+                    pass
+
+                if not bboxes and text:
+                    bboxes.append({
+                        "text": text[:100],
                         "ymin": 0.0,
                         "xmin": 0.0,
                         "ymax": 1.0,
-                        "xmax": 1.0
-                    }
-                ] if text else []
-            })
-    except Exception as e:
-        logger.warning(f"pypdf fallback failed: {e}. Reading as raw text.")
-        try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
-                content = f.read()
-            pages.append({
-                "page_number": 1,
-                "content": content.strip(),
-                "bounding_boxes": []
-            })
-        except Exception as read_err:
-            logger.error(f"Failed to read file {file_path}: {read_err}")
-            raise ValueError(f"Could not parse file: {read_err}") from read_err
+                        "xmax": 1.0,
+                    })
 
-    return pages
+                pages.append({
+                    "page_number": page_idx + 1,
+                    "content": text,
+                    "bounding_boxes": bboxes,
+                })
+
+            if pages:
+                return pages
+        except Exception as fitz_err:
+            logger.warning(f"PyMuPDF fallback failed ({fitz_err}). Trying pypdf.")
+
+        # Strategy B: pypdf (pure Python fallback)
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(file_path)
+            for page_idx, page in enumerate(reader.pages):
+                text = (page.extract_text() or "").replace("\x00", "").strip()
+                pages.append({
+                    "page_number": page_idx + 1,
+                    "content": text,
+                    "bounding_boxes": [
+                        {
+                            "text": text[:100] if text else "",
+                            "ymin": 0.0,
+                            "xmin": 0.0,
+                            "ymax": 1.0,
+                            "xmax": 1.0,
+                        }
+                    ] if text else [],
+                })
+            if pages:
+                return pages
+        except Exception as pypdf_err:
+            logger.error(f"pypdf fallback failed: {pypdf_err}")
+            raise ValueError(f"Could not extract text from PDF document: {pypdf_err}") from pypdf_err
+
+        raise ValueError(f"PDF document {file_path} contained no readable text pages.")
+
+    # 2. DOCX Handling
+    if lower_path.endswith(".docx"):
+        try:
+            import docx
+            doc = docx.Document(file_path)
+            paragraphs = [p.text.replace("\x00", "").strip() for p in doc.paragraphs if p.text.strip()]
+            full_text = "\n\n".join(paragraphs)
+            return [{
+                "page_number": 1,
+                "content": full_text,
+                "bounding_boxes": [],
+            }]
+        except Exception as docx_err:
+            logger.error(f"DOCX parser failed: {docx_err}")
+            raise ValueError(f"Could not parse DOCX file: {docx_err}") from docx_err
+
+    # 3. Plain Text / Markdown / CSV / JSON Fallback
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read().replace("\x00", "")
+        return [{
+            "page_number": 1,
+            "content": content.strip(),
+            "bounding_boxes": [],
+        }]
+    except Exception as read_err:
+        logger.error(f"Failed to read file {file_path}: {read_err}")
+        raise ValueError(f"Could not parse file: {read_err}") from read_err
 
 
 def parse_document(file_path: str) -> List[Dict[str, Any]]:

@@ -81,15 +81,15 @@ async def _persist_chunks(
     """Bulk insert extracted chunks into the PostgreSQL chunks table with vector embeddings and TSVector."""
     conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
     try:
-        # Prepare records for executemany
+        # Prepare records for executemany, ensuring null-bytes are purged for PostgreSQL compatibility
         records = [
             (
                 c["id"],
                 doc_id,
                 tenant_id,
                 c["chunk_index"],
-                c["content"],
-                c.get("contextual_summary", ""),
+                (c.get("content") or "").replace("\x00", ""),
+                (c.get("contextual_summary") or "").replace("\x00", ""),
                 c.get("page_number", 1),
                 json.dumps(c.get("bounding_box", {})),
                 c.get("token_count", 0),

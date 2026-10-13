@@ -26,7 +26,9 @@ EMBEDDING_DIM = settings.EMBEDDING_DIM      # 1536 dimensions
 
 def compute_cache_key(text: str) -> str:
     """Compute 16-character SHA-256 cache key for given text."""
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+    provider = "gemini" if settings.GEMINI_API_KEY else "openai" if settings.OPENAI_API_KEY else "fallback"
+    model = settings.EMBEDDING_MODEL if provider == "gemini" else settings.OPENAI_EMBEDDING_MODEL if provider == "openai" else "hash-v1"
+    digest = hashlib.sha256(f"{provider}:{model}:{EMBEDDING_DIM}:{text}".encode("utf-8")).hexdigest()[:16]
     return f"{CACHE_PREFIX}{digest}"
 
 
@@ -50,17 +52,25 @@ def _generate_fallback_embedding(text: str, dim: int = EMBEDDING_DIM) -> List[fl
 
 
 async def _fetch_gemini_embeddings(texts: List[str]) -> List[List[float]]:
-    """Fetch embeddings in batch from Google Gemini API (text-embedding-004)."""
+    """Fetch 1536-dimensional embeddings from the current Gemini model."""
     try:
         import httpx
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:batchEmbedContents?key={settings.GEMINI_API_KEY}"
-        requests = [{"model": "models/text-embedding-004", "content": {"parts": [{"text": t}]}} for t in texts]
+        model = settings.EMBEDDING_MODEL
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:batchEmbedContents"
+        requests = [
+            {
+                "model": f"models/{model}",
+                "content": {"parts": [{"text": t}]},
+                "embedContentConfig": {"outputDimensionality": EMBEDDING_DIM},
+            }
+            for t in texts
+        ]
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json={"requests": requests})
+            resp = await client.post(url, json={"requests": requests}, headers={"x-goog-api-key": settings.GEMINI_API_KEY})
             resp.raise_for_status()
             data = resp.json()
             embeddings = [emb["values"] for emb in data.get("embeddings", [])]
-            if len(embeddings) == len(texts):
+            if len(embeddings) == len(texts) and all(len(emb) == EMBEDDING_DIM for emb in embeddings):
                 return embeddings
             return [_generate_fallback_embedding(t) for t in texts]
     except Exception as err:
@@ -75,7 +85,7 @@ async def _fetch_openai_embeddings(texts: List[str]) -> List[List[float]]:
         client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         response = await client.embeddings.create(
             input=texts,
-            model=settings.EMBEDDING_MODEL
+            model=settings.OPENAI_EMBEDDING_MODEL
         )
         return [data.embedding for data in response.data]
     except Exception as err:

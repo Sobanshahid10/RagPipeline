@@ -20,6 +20,12 @@ from app.retrieval.fusion import reciprocal_rank_fusion
 from app.retrieval.reranker import CrossEncoderReranker
 
 
+@pytest.fixture(autouse=True)
+def disable_real_embedding_api_calls(monkeypatch):
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", None)
+
+
 class MockRedis:
     """Mock in-memory Redis client for fast unit testing."""
 
@@ -61,6 +67,31 @@ async def test_compute_cache_key():
     assert len(key1) == 20  # "emb:" (4 chars) + 16 hex chars
     assert key1 == key2
     assert key1 != key3
+
+
+@pytest.mark.asyncio
+async def test_gemini_embedding_uses_current_model_and_requested_dimensions(monkeypatch):
+    import httpx
+    from app.config import settings
+    from app.ingestion.embedder import _fetch_gemini_embeddings
+
+    observed = {}
+
+    def handler(request):
+        observed["url"] = str(request.url)
+        observed["key"] = request.headers["x-goog-api-key"]
+        observed["payload"] = json.loads(request.content)
+        return httpx.Response(200, json={"embeddings": [{"values": [0.0] * EMBEDDING_DIM}]})
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(settings, "EMBEDDING_MODEL", "gemini-embedding-2")
+    vectors = await _fetch_gemini_embeddings(["A passage"])
+    assert len(vectors[0]) == EMBEDDING_DIM
+    assert observed["url"].endswith("/models/gemini-embedding-2:batchEmbedContents")
+    assert observed["key"] == "test-key"
+    assert observed["payload"]["requests"][0]["embedContentConfig"]["outputDimensionality"] == EMBEDDING_DIM
 
 
 @pytest.mark.asyncio

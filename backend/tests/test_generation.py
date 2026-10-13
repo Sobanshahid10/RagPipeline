@@ -7,11 +7,13 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 
 from app.api import query as query_api
 from app.generation.citation_parser import extract_citations
 from app.generation.prompt_builder import SYSTEM_PROMPT, build_prompt
 from app.generation.streamer import stream_response
+from app.generation.streamer import ConfiguredLLMClient
 
 
 CHUNKS = [{
@@ -31,6 +33,48 @@ def test_prompt_builder_labels_grounding_sources():
     assert "[SOURCE:{chunk_id}:{page_number}]" in system
     assert "--- Chunk 1 (chunk_id: chunk-123, page: 7) ---" in user
     assert "Question: What is the leave policy?" in user
+
+
+@pytest.mark.asyncio
+async def test_groq_answer_model_override_uses_groq_key_and_model(monkeypatch):
+    from app.config import settings
+    import httpx
+
+    captured = {}
+
+    def handler(request):
+        captured["request"] = request
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            text='data: {"choices":[{"delta":{"content":"Grounded answer"}}]}\n\ndata: [DONE]\n\n',
+        )
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(settings, "GROQ_API_KEY", "test-groq-key")
+    client = ConfiguredLLMClient("openai/gpt-oss-20b")
+    assert client.provider == "groq"
+    assert [part async for part in client.stream("System", "Question")] == ["Grounded answer"]
+    request = captured["request"]
+    assert json.loads(request.content)["model"] == "openai/gpt-oss-20b"
+    assert request.headers["authorization"] == "Bearer test-groq-key"
+
+
+@pytest.mark.asyncio
+async def test_selected_groq_model_requires_key(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "GROQ_API_KEY", None)
+    with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
+        _ = [part async for part in ConfiguredLLMClient("openai/gpt-oss-120b").stream("System", "Question")]
+
+
+def test_query_accepts_current_models_and_rejects_retired_ids():
+    assert query_api.QueryRequest(query="Q", model="openai/gpt-oss-120b").model == "openai/gpt-oss-120b"
+    assert query_api.QueryRequest(query="Q", model="gemini-3.7-flash").model == "gemini-3.7-flash"
+    with pytest.raises(ValidationError):
+        query_api.QueryRequest(query="Q", model="gemini-2.0-flash")
 
 
 def test_citation_parser_resolves_bounding_box_and_ignores_unknown_sources():

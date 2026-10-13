@@ -129,6 +129,33 @@ async def test_semantic_cache_hit_and_latency(monkeypatch):
     assert duration_ms < 15.0
 
 
+@pytest.mark.asyncio
+async def test_evaluation_bypasses_cached_answers(monkeypatch):
+    """A benchmark query must exercise retrieval even if an answer is cached."""
+    from app.agentic import pipeline
+
+    cache = SemanticCache(redis_client=MockRedis())
+    embedding = [0.1] * 1536
+    await cache.set("What is Umar's degree?", embedding, "A stale cached answer")
+    fake_embedder = AsyncMock()
+    fake_embedder.embed_text = AsyncMock(return_value=embedding)
+    fake_retrieval = AsyncMock(return_value=[{"id": "book-chunk", "content": "BS Artificial Intelligence"}])
+    monkeypatch.setattr(pipeline.engine, "retrieve", fake_retrieval)
+
+    result = await process_query(
+        query="What is Umar's degree?",
+        tenant_id="tenant-test",
+        user_id="user-123",
+        embedder=fake_embedder,
+        cache=cache,
+        bypass_cache=True,
+    )
+
+    assert "answer" not in result
+    assert result["chunks"][0]["id"] == "book-chunk"
+    fake_retrieval.assert_awaited_once()
+
+
 # ============================================================================
 # Test 2: Query Expansion (original first + alternatives)
 # ============================================================================

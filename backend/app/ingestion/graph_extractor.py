@@ -234,7 +234,7 @@ async def _call_llm_for_triples(chunk_content: str, llm_client: Optional[Any] = 
         except Exception as e:
             logger.warning(f"Injected LLM client triple extraction failed: {e}")
 
-    # 2. Groq Provider (gpt-oss-120b / gpt-oss-20b / llama-3.3-70b)
+    # 2. Groq Provider (openai/gpt-oss-120b / openai/gpt-oss-20b)
     if settings.GROQ_API_KEY:
         try:
             import httpx
@@ -243,7 +243,7 @@ async def _call_llm_for_triples(chunk_content: str, llm_client: Optional[Any] = 
                 "Content-Type": "application/json"
             }
             payload = {
-                "model": settings.LLM_MODEL if "gpt-oss" in settings.LLM_MODEL or "llama" in settings.LLM_MODEL else "llama-3.3-70b-versatile",
+                "model": settings.LLM_MODEL if settings.LLM_MODEL.startswith("openai/gpt-oss-") else "openai/gpt-oss-120b",
                 "messages": [
                     {"role": "system", "content": "You are a Knowledge Graph extractor. Output only a raw JSON array of subject-predicate-object triples."},
                     {"role": "user", "content": prompt}
@@ -261,18 +261,17 @@ async def _call_llm_for_triples(chunk_content: str, llm_client: Optional[Any] = 
         except Exception as groq_err:
             logger.warning(f"Groq triple extraction call failed: {groq_err}")
 
-    # 3. Gemini Provider (gemini-2.0-flash / gemini-1.5-flash)
+    # 3. Gemini Provider (model selected through LLM_MODEL)
     if settings.GEMINI_API_KEY:
         try:
             import httpx
-            model_name = settings.LLM_MODEL if "gemini" in settings.LLM_MODEL else "gemini-2.0-flash"
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={settings.GEMINI_API_KEY}"
+            model_name = settings.LLM_MODEL if settings.LLM_MODEL.startswith("gemini-") else "gemini-3.8-flash"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
             payload = {
                 "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.0}
             }
             async with httpx.AsyncClient(timeout=30.0) as http_client:
-                resp = await http_client.post(url, json=payload)
+                resp = await http_client.post(url, json=payload, headers={"x-goog-api-key": settings.GEMINI_API_KEY})
                 if resp.status_code == 200:
                     data = resp.json()
                     candidates = data.get("candidates", [])

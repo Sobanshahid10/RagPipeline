@@ -52,8 +52,8 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         return client.host if client else "127.0.0.1"
 
     async def dispatch(self, request: Request, call_next: Callable[[Request], Response]) -> Response:
-        # Check exemption
-        if request.url.path in self.exempt_paths:
+        # Check exemption (always allow OPTIONS CORS preflight)
+        if request.method == "OPTIONS" or request.url.path in self.exempt_paths:
             return await call_next(request)
 
         now = time.time()

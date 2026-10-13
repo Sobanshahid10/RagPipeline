@@ -36,67 +36,122 @@ def _token_text(token: Any) -> str:
 class ConfiguredLLMClient:
     """Stream through the configured provider, with a grounded local fallback."""
 
+    def __init__(self, model_override: str | None = None) -> None:
+        self.model_override = model_override
+
+    @property
+    def provider(self) -> str:
+        if self.model_override:
+            return "gemini" if self.model_override.startswith("gemini-") else "groq"
+        return settings.LLM_PROVIDER.casefold()
+
     async def stream(self, system: str, user_prompt: str) -> AsyncIterator[str]:
-        provider = settings.LLM_PROVIDER.casefold()
+        provider = self.provider
+        if self.model_override and provider == "groq" and not settings.GROQ_API_KEY:
+            raise RuntimeError("Groq API key is missing. Add GROQ_API_KEY to .env and restart the backend.")
+        if self.model_override and provider == "gemini" and not settings.GEMINI_API_KEY:
+            raise RuntimeError("Gemini API key is missing. Add GEMINI_API_KEY to .env and restart the backend.")
 
         if provider == "groq" and settings.GROQ_API_KEY:
             try:
-                from openai import AsyncOpenAI
+                import httpx
+                import json
 
-                client = AsyncOpenAI(
-                    api_key=settings.GROQ_API_KEY,
-                    base_url="https://api.groq.com/openai/v1",
-                )
-                response = await client.chat.completions.create(
-                    model=settings.LLM_MODEL,
-                    messages=[
+                payload = {
+                    "model": self.model_override or (settings.LLM_MODEL if settings.LLM_MODEL.startswith("openai/gpt-oss-") else "openai/gpt-oss-120b"),
+                    "messages": [
                         {"role": "system", "content": system},
                         {"role": "user", "content": user_prompt},
                     ],
-                    stream=True,
-                    temperature=0.0,
-                )
-                async for part in response:
-                    text = part.choices[0].delta.content or ""
-                    if text:
-                        yield text
-                return
-            except Exception as exc:
-                logger.warning("Groq stream failed; using grounded fallback: %s", exc)
-
-        if provider == "gemini" and settings.GEMINI_API_KEY:
-            try:
-                import httpx
-
-                model = settings.LLM_MODEL if "gemini" in settings.LLM_MODEL else "gemini-2.0-flash"
-                url = (
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:"
-                    f"streamGenerateContent?alt=sse&key={settings.GEMINI_API_KEY}"
-                )
-                payload = {
-                    "systemInstruction": {"parts": [{"text": system}]},
-                    "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
-                    "generationConfig": {"temperature": 0.0},
+                    "stream": True,
                 }
+                headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
                 async with httpx.AsyncClient(timeout=60.0) as client:
-                    async with client.stream("POST", url, json=payload) as response:
+                    async with client.stream("POST", "https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers) as response:
                         response.raise_for_status()
                         async for line in response.aiter_lines():
-                            if not line.startswith("data: "):
+                            if not line.startswith("data: ") or line == "data: [DONE]":
                                 continue
-                            import json
-
                             data = json.loads(line[6:])
-                            candidates = data.get("candidates", [])
-                            if not candidates:
-                                continue
-                            parts = candidates[0].get("content", {}).get("parts", [])
-                            text = "".join(str(part.get("text", "")) for part in parts)
+                            choices = data.get("choices", [])
+                            text = choices[0].get("delta", {}).get("content") if choices else None
                             if text:
                                 yield text
                 return
             except Exception as exc:
-                logger.warning("Gemini stream failed; using grounded fallback: %s", exc)
+                if self.model_override:
+                    raise RuntimeError("Groq answer generation failed. Check the model, API key, and quota.") from exc
+                logger.warning("Groq stream failed; using grounded fallback: %s", exc)
+
+        if provider == "gemini" and settings.GEMINI_API_KEY:
+            import httpx
+            import json
+
+            configured_model = self.model_override or settings.LLM_MODEL
+            primary_model = configured_model if configured_model.startswith("gemini-") else "gemini-3.5-flash"
+            gemini_candidates = [primary_model] + [m for m in ("gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite") if m != primary_model]
+
+            gemini_succeeded = False
+            for model in gemini_candidates:
+                url = (
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:"
+                    "streamGenerateContent?alt=sse"
+                )
+                payload = {
+                    "systemInstruction": {"parts": [{"text": system}]},
+                    "contents": [{"role": "user", "parts": [{"text": user_prompt}]}],
+                }
+                try:
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        async with client.stream("POST", url, json=payload, headers={"x-goog-api-key": settings.GEMINI_API_KEY}) as response:
+                            if response.status_code == 200:
+                                async for line in response.aiter_lines():
+                                    if not line.startswith("data: "):
+                                        continue
+                                    data = json.loads(line[6:])
+                                    candidates = data.get("candidates", [])
+                                    if not candidates:
+                                        continue
+                                    parts = candidates[0].get("content", {}).get("parts", [])
+                                    text = "".join(str(part.get("text", "")) for part in parts)
+                                    if text:
+                                        gemini_succeeded = True
+                                        yield text
+                                if gemini_succeeded:
+                                    return
+                except Exception as exc:
+                    logger.warning("Gemini model %s stream failed: %s; trying fallback", model, exc)
+                    continue
+
+            # If all Gemini models are exhausted, fall back to Groq if configured
+            if settings.GROQ_API_KEY:
+                try:
+                    payload = {
+                        "model": "openai/gpt-oss-120b",
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user_prompt},
+                        ],
+                        "stream": True,
+                    }
+                    headers = {"Authorization": f"Bearer {settings.GROQ_API_KEY}"}
+                    async with httpx.AsyncClient(timeout=60.0) as client:
+                        async with client.stream("POST", "https://api.groq.com/openai/v1/chat/completions", json=payload, headers=headers) as response:
+                            if response.status_code == 200:
+                                async for line in response.aiter_lines():
+                                    if not line.startswith("data: ") or line == "data: [DONE]":
+                                        continue
+                                    data = json.loads(line[6:])
+                                    choices = data.get("choices", [])
+                                    text = choices[0].get("delta", {}).get("content") if choices else None
+                                    if text:
+                                        yield text
+                                return
+                except Exception as exc:
+                    logger.warning("Groq emergency fallback stream failed: %s", exc)
+
+            if self.model_override:
+                raise RuntimeError("LLM answer generation failed across providers. Check model, API key, and quota.")
 
         if provider == "openai" and settings.OPENAI_API_KEY:
             try:
