@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from app.config import settings
@@ -7,6 +8,7 @@ from app.api.documents import router as documents_router
 from app.api.retrieval import router as retrieval_router
 from app.api.query import router as query_router
 from app.api.admin import router as admin_router
+from app.api.public_book import router as public_book_router
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -46,6 +48,7 @@ app.include_router(documents_router)
 app.include_router(retrieval_router)
 app.include_router(query_router)
 app.include_router(admin_router)
+app.include_router(public_book_router)
 
 
 class HealthResponse(BaseModel):
@@ -68,4 +71,18 @@ async def get_info():
     return InfoResponse(
         project=settings.PROJECT_NAME,
         environment="development"
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    import logging
+    logging.getLogger("app.main").exception(f"Unhandled exception on {request.method} {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
     )

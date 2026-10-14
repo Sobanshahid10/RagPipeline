@@ -1,0 +1,86 @@
+{
+  "question": "Which hackathon does Umar's portfolio report winning, and what result did the project README report?",
+  "status": "ready",
+  "context_format": "json_sources_v1",
+  "source_name": "PUBLIC_KNOWLEDGE_BOOK.md",
+  "source_sha256": "38ebbff756c2bb70f393c20398944faba0d886e23937fd4b6ed0906ea978e93d",
+  "max_context_bytes": 4096,
+  "context_bytes": 2958,
+  "max_sources": 5,
+  "included_count": 5,
+  "skipped": [
+    {
+      "id": "pubbook-2b1fb292c48b9585",
+      "reason": "source_limit"
+    },
+    {
+      "id": "pubbook-10b340826c08196a",
+      "reason": "source_limit"
+    },
+    {
+      "id": "pubbook-2cca62a6e7ebf4b9",
+      "reason": "source_limit"
+    },
+    {
+      "id": "pubbook-615e811ad6c71014",
+      "reason": "source_limit"
+    },
+    {
+      "id": "pubbook-8f9ed3f2fe7da32f",
+      "reason": "source_limit"
+    }
+  ],
+  "source_manifest": [
+    {
+      "source_id": "S1",
+      "chunk_id": "pubbook-5870fff248a644a4",
+      "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L71",
+      "source_line_start": 71,
+      "source_line_end": 71,
+      "section_owner": "umar",
+      "content_sha256": "bd17dc28594e9415213a08daf45016099620b6f8ef7adeb11a6017d171efc96c",
+      "rerank_score": 0.05699894
+    },
+    {
+      "source_id": "S2",
+      "chunk_id": "pubbook-8fdf091d38577c23",
+      "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L206",
+      "source_line_start": 206,
+      "source_line_end": 206,
+      "section_owner": "umar",
+      "content_sha256": "0bd9890118ab55ff673789e71f81a739bdb46d2e6764fb562c5905ec58f686f3",
+      "rerank_score": 0.05699353
+    },
+    {
+      "source_id": "S3",
+      "chunk_id": "pubbook-a96db40021da7c92",
+      "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L274",
+      "source_line_start": 274,
+      "source_line_end": 274,
+      "section_owner": "general",
+      "content_sha256": "0735345de5edef61654767eac061404ebc88998bdd869da001b2ae5aa5766f1c",
+      "rerank_score": 0.04923325
+    },
+    {
+      "source_id": "S4",
+      "chunk_id": "pubbook-bc97d6c6db774471",
+      "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L182",
+      "source_line_start": 182,
+      "source_line_end": 182,
+      "section_owner": "umar",
+      "content_sha256": "c82b27dcb9a2f1c804820360b2c11375f0ec47536508e0ca6138054f25bd8fa6",
+      "rerank_score": 0.04599686
+    },
+    {
+      "source_id": "S5",
+      "chunk_id": "pubbook-8005089bdf1db9ed",
+      "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L45",
+      "source_line_start": 45,
+      "source_line_end": 45,
+      "section_owner": "umar",
+      "content_sha256": "398d42809ca1dcf5ae7669ce26bd13e0c77d6b4d9e911f2af510331e9d0c6746",
+      "rerank_score": 0.04545455
+    }
+  ],
+  "context": "{\"sources\":[{\"source_id\":\"S1\",\"chunk_id\":\"pubbook-5870fff248a644a4\",\"citation\":\"PUBLIC_KNOWLEDGE_BOOK.md:L71\",\"section\":\"2.3 Awards and measurable claims\",\"text\":\"AI Seekho Day 2026 Gemma fine-tuning hackathon: The portfolio and project repository (https://github.com/omerfarooq223/gemma-claim-verification) report first place. The selected checkpoint is reported at 94.40% accuracy and 94.38% macro-F1 on a 500-example event-day test set. The README describes 472 correct predictions and zero invalid outputs.\"},{\"source_id\":\"S2\",\"chunk_id\":\"pubbook-8fdf091d38577c23\",\"citation\":\"PUBLIC_KNOWLEDGE_BOOK.md:L206\",\"section\":\"3.5 Evidence-backed chronology and useful cross-project insights\",\"text\":\"Measure: Portfolio scale claims; Observed value: “27+ projects shipped”; “14+ AI agents built”; Exact meaning: Self-reported portfolio labels. The independently observed GitHub repository count is 27; “shipped” and “agent” are not defined or audited by this count.\"},{\"source_id\":\"S3\",\"chunk_id\":\"pubbook-a96db40021da7c92\",\"citation\":\"PUBLIC_KNOWLEDGE_BOOK.md:L274\",\"section\":\"8. What this corpus can answer, and what it cannot\",\"text\":\"With correct indexing and retrieval, this corpus can answer questions such as: where Umar studied; what the current portfolio says about his teaching and internship experience; which skill domains the portfolio names; what Soban's CV reports as his CGPA and earlier schooling; how Soban describes his automation internship and freelance work; which GitHub projects use YOLO; what evidence the Gemma project reports for its 94.40% result; which projects appear on both accounts; the earliest documented date for Umar's repository projects; how Docinsight and AInsight are related; how many authored commits were observed in the reviewed repository histories; or which source supports a named certification. Every answer should cite the relevant URL or supplied-document identifier and distinguish a source claim from an independently tested fact.\"},{\"source_id\":\"S4\",\"chunk_id\":\"pubbook-bc97d6c6db774471\",\"citation\":\"PUBLIC_KNOWLEDGE_BOOK.md:L182\",\"section\":\"3.5 Evidence-backed chronology and useful cross-project insights\",\"text\":\"Date: 6 March 2026; Public repository: AutoGrader Agent (https://github.com/omerfarooq223/AutoGrader-Agent); Portfolio Website (https://github.com/omerfarooq223/omerfarooq223.github.io)\"},{\"source_id\":\"S5\",\"chunk_id\":\"pubbook-8005089bdf1db9ed\",\"citation\":\"PUBLIC_KNOWLEDGE_BOOK.md:L45\",\"section\":\"2.2 Work and practical experience\",\"text\":\"Period: November 2023–January 2024; Role: Customer services, Shopify Store, remote; Work described by the sources: Handled email/chat inquiries, orders, returns, product questions, shipment tracking, and supplier coordination. The current live portfolio gives these dates; an older cached page and the earlier knowledge-book version gave November 2024–January 2025, so the live portfolio is used as the current preferred source.\"}]}"
+}
