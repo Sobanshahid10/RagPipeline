@@ -1,0 +1,17 @@
+{
+  "run_at_utc": "2026-09-29T02:04:14.581403+00:00",
+  "model": "gemini-3.5-flash",
+  "rows": [
+    {
+      "id": "opinion_best",
+      "category": "opinion",
+      "question": "What is the best part of Omer's portfolio, and what evidence supports that judgment?",
+      "reference_answer": null,
+      "status": 503,
+      "latency_seconds": 4.74,
+      "response": {
+        "detail": "gemini-3.5-flash is temporarily unavailable"
+      }
+    }
+  ]
+}

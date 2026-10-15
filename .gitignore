@@ -70,3 +70,4 @@ battery_results.json
 evaluation_test_run*.json
 *.tsbuildinfo
 next-env.d.ts
+docs/

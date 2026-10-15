@@ -1,0 +1,790 @@
+{
+  "run_at_utc": "2026-09-29T01:57:23.575393+00:00",
+  "model": "openai/gpt-oss-120b",
+  "rows": [
+    {
+      "id": "public_01",
+      "category": "identity",
+      "question": "Do Omer, Omar, Umar, and Umer refer to different people in this book?",
+      "reference_answer": "No. The user accepts all four spellings of his given name; they refer to Muhammad Umar Farooq, the same person.",
+      "status": 200,
+      "latency_seconds": 2.72,
+      "response": {
+        "question": "Do Omer, Omar, Umar, and Umer refer to different people in this book?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "No, Omer, Omar, Umar, and Umer are spelling variations of the same individual, Muhammad Umar Farooq, as stated in the book [S1].",
+        "citations": [
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-f64b8abab6766e05",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L14",
+            "section": "1.1 Muhammad Umar Farooq",
+            "text": "The profile links explicitly associated with his portfolio, CV, or GitHub are GitHub (https://github.com/omerfarooq223), LinkedIn (https://www.linkedin.com/in/omerfarooq223/), Hugging Face (https://huggingface.co/omerfarooq223), Kaggle (https://www.kaggle.com/omerfarooq223), LeetCode (https://leetcode.com/u/OmerFarooq31/), and ORCID (https://orcid.org/0009-0002-3978-7448). His public professional email is momerfarooq223@gmail.com. Muhammad Umar Farooq is the name used in this book. The user accepts Omer, Omar, Umar, and Umer as spellings of his given name; Kaggle displays Muhammad Umer Farooq. These spellings refer to the same person."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-72dcadf045779225",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L183",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "The older omer author identity with a different email was deliberately excluded from the authored-commit totals because its connection to the configured identity was not verified. The agent should answer “How many commits has Umar made?” with the 634 observed in the reviewed local histories, name the scope and snapshot date, and say that an account-wide lifetime total is not established here. It should never answer 1,011 commits by relabeling GitHub contributions."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-556d7a5b9d8daf45",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L12",
+            "section": "1.1 Muhammad Umar Farooq",
+            "text": "Muhammad Umar Farooq presents himself as an AI and autonomous systems engineer in Lahore, Pakistan. His portfolio (https://omerfarooq223.github.io/) emphasizes agentic AI, machine learning, automation, and practical systems. His LinkedIn (https://www.linkedin.com/in/omerfarooq223/) headline highlights agentic workflows, local LLM inference, and production RAG. The CV (https://omerfarooq223.github.io/CV.pdf) uses the title Automation Engineer. These are complementary self-descriptions rather than separate identities."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-3b90cd9bf11339df",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L24",
+            "section": "1.3 Shared context",
+            "text": "The two public profiles show overlapping AI and software engineering interests and public project collaboration. Soban's LinkedIn (https://www.linkedin.com/in/muhammad-soban-shahid/) posts describe joint work on ChiefMind and ClarityHire; Umar's and Soban's GitHub accounts contain related or corresponding repositories. A LinkedIn post on Soban's profile also describes collaborative work on DocuStratum Studio. These are public self-reports. The corpus should keep each person's contribution distinct unless a source explicitly attributes joint ownership."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-57819213153d4196",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L44",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: February–September 2025; Role: UMT tutoring and online instruction, Lahore/remote; Work described by the sources: The current portfolio says Umar tutored peers in AI and programming, adapting explanations to different learners. It also says he designed and taught an online technical summer course from July–September 2025, with curriculum, live sessions, and practical assignments. The portfolio links a peer-tutoring certificate; the separate summer-course claim was not independently verified here."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_02",
+      "category": "education",
+      "question": "What does Umar's current portfolio report as his UMT degree, CGPA, and scholarship?",
+      "reference_answer": "The portfolio reports a BS in Artificial Intelligence at UMT, a CGPA of 3.85/4.0, and a 70% merit scholarship.",
+      "status": 200,
+      "latency_seconds": 1.44,
+      "response": {
+        "question": "What does Umar's current portfolio report as his UMT degree, CGPA, and scholarship?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "Umar’s current portfolio lists a BS in Artificial Intelligence from the University of Management & Technology (UMT), a CGPA of 3.85 out of 4.0, and a 70% merit scholarship [S1][S2].",
+        "citations": [
+          "S1",
+          "S2"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-97b0489fbe0e70e4",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L32",
+            "section": "2.1 Education",
+            "text": "Period: October 2023–present; Institution and program: University of Management & Technology (UMT), Lahore; BS Artificial Intelligence; Publicly stated details: The current portfolio reports CGPA 3.85/4.0, a 70% merit scholarship, and the Dean's and Rector's awards. The CV's “seventh semester” label is a document snapshot, not a start date."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-31ff4363410ac0b0",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L76",
+            "section": "2.3 Awards and measurable claims",
+            "text": "Merit scholarships: 70% at UMT and 50% at Punjab Group of Colleges, according to the portfolio and CV."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-57819213153d4196",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L44",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: February–September 2025; Role: UMT tutoring and online instruction, Lahore/remote; Work described by the sources: The current portfolio says Umar tutored peers in AI and programming, adapting explanations to different learners. It also says he designed and taught an online technical summer course from July–September 2025, with curriculum, live sessions, and practical assignments. The portfolio links a peer-tutoring certificate; the separate summer-course claim was not independently verified here."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-c5931dc60fd6f967",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L74",
+            "section": "2.3 Awards and measurable claims",
+            "text": "UMT Rector's Award, 2026: The portfolio links this to a 4.0 semester SGPA."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-b6cdf5e080b41952",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L33",
+            "section": "2.1 Education",
+            "text": "Period: September 2021–June 2023; Institution and program: Punjab Group of Colleges; FSc Pre-Medical; Publicly stated details: The current portfolio reports 970 marks, 88.2%, and a 50% merit scholarship."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_03",
+      "category": "achievement",
+      "question": "Which hackathon does Umar's portfolio report winning, and what result did the project README report?",
+      "reference_answer": "The portfolio and repository report first place at the AI Seekho Day 2026 Gemma fine-tuning hackathon. The selected checkpoint is reported at 94.40% accuracy and 94.38% macro-F1 on a 500-example event-day test set.",
+      "status": 200,
+      "latency_seconds": 1.3,
+      "response": {
+        "question": "Which hackathon does Umar's portfolio report winning, and what result did the project README report?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "Umar's portfolio reports winning first place at the AI Seekho Day 2026 Gemma fine‑tuning hackathon [S2], and the project README reports 472 correct predictions with zero invalid outputs [S2].",
+        "citations": [
+          "S2"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-4bac17a588807862",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L181",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Portfolio scale claims; Observed value: “27+ projects shipped”; “14+ AI agents built”; Exact meaning: Self-reported portfolio labels. The independently observed GitHub repository count is 27; “shipped” and “agent” are not defined or audited by this count."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-d88f90bf5c51de36",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L73",
+            "section": "2.3 Awards and measurable claims",
+            "text": "AI Seekho Day 2026 Gemma fine-tuning hackathon: The portfolio and project repository (https://github.com/omerfarooq223/gemma-claim-verification) report first place. The selected checkpoint is reported at 94.40% accuracy and 94.38% macro-F1 on a 500-example event-day test set. The README describes 472 correct predictions and zero invalid outputs."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-58897bfc5d90539d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L258",
+            "section": "8. What this corpus can answer, and what it cannot",
+            "text": "With correct indexing and retrieval, this corpus can answer questions such as: where Umar studied; what the current portfolio says about his teaching and internship experience; which skill domains the portfolio names; what Soban's CV reports as his CGPA and earlier schooling; how Soban describes his automation internship and freelance work; which GitHub projects use YOLO; what evidence the Gemma project reports for its 94.40% result; which projects appear on both accounts; the earliest documented date for Umar's repository projects; how Docinsight and AInsight are related; how many authored commits were observed in the reviewed repository histories; or which source supports a named certification. Every answer should cite the relevant URL or supplied-document identifier and distinguish a source claim from an independently tested fact."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-2dfe9f3bce35c504",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_04",
+      "category": "chronology",
+      "question": "When is Umar's public repository project work first documented, and does that prove when he started coding?",
+      "reference_answer": "The earliest dated commits in the reviewed histories are 6 October 2025. They document repository work by that date but do not prove when he first began coding or started his first project.",
+      "status": 200,
+      "latency_seconds": 3.87,
+      "response": {
+        "question": "When is Umar's public repository project work first documented, and does that prove when he started coding?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "Umar's public repository project work is first documented on 6 October 2025, as that is the date of the earliest commits found in the locally reviewed histories of his public GitHub repositories (DSA_CPP and YOLO Vehicle Detection) [S1]. This documented date does not prove that he started coding on that day; commit dates only show when work entered the available histories and are not evidence of when the code was originally written or when he began programming [S2].",
+        "citations": [
+          "S1",
+          "S2"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-2dfe9f3bce35c504",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-c8e25dddfae6b80d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L192",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "For date questions, the agent should answer with the earliest evidence available and its source, then state the limit: a repository's first commit does not prove when Umar first learned, conceived, or privately started a project. For contribution questions, it should distinguish an author account in Git history, a team credit in a README, and a demonstrated individual implementation; these are different kinds of evidence."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-16047349fed19109",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L179",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits in locally reviewed public-repository histories; Observed value: 348; Exact meaning: Distinct commits reachable from the checked-out HEAD of 23 of 27 public-repository mirrors, matching the Git author email configured across Umar's repositories. This does not cover four public repositories or unexamined branches."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-9f2e655058524505",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L95",
+            "section": "3. Umar: project atlas",
+            "text": "The GitHub repository list (https://github.com/omerfarooq223?tab=repositories) showed 27 public repositories on the review date. GitHub is the inclusion and naming authority for this atlas: every project below has a repository in Umar's account. Where portfolio wording conflicts with a GitHub README, the GitHub README takes precedence. The five non-public internship codebases are recorded in section 2.2 as professional work, not public GitHub projects."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_05",
+      "category": "chronology",
+      "question": "What distinction does the book make between Umar's 348 and 634 commit counts?",
+      "reference_answer": "348 counts authored commits in the reviewed public repository histories; 634 counts distinct authored commits across those public histories plus five internship histories, with shared commit IDs deduplicated. Neither is a lifetime GitHub total.",
+      "status": 200,
+      "latency_seconds": 3.38,
+      "response": {
+        "question": "What distinction does the book make between Umar's 348 and 634 commit counts?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "The book explains that the 348 count refers to distinct commits reachable from the checked‑out HEAD of 23 of the 27 public‑repository mirrors that match Umar’s configured author email, excluding four repositories and any unexamined branches [S3]. In contrast, the 634 count represents distinct commits under the same author identity after deduplicating shared commit IDs across all reviewed public histories plus five internship histories, providing a broader scoped local‑history total that is not a GitHub lifetime total [S1].",
+        "citations": [
+          "S3",
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-c3a65f3f553cc189",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L180",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits across those public histories plus five internship histories; Observed value: 634; Exact meaning: Distinct commits under the same author identity after deduplicating shared commit IDs, including Docinsight/AInsight common history. This is a scoped local-history count, not a GitHub lifetime total."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-72dcadf045779225",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L183",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "The older omer author identity with a different email was deliberately excluded from the authored-commit totals because its connection to the configured identity was not verified. The agent should answer “How many commits has Umar made?” with the 634 observed in the reviewed local histories, name the scope and snapshot date, and say that an account-wide lifetime total is not established here. It should never answer 1,011 commits by relabeling GitHub contributions."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-16047349fed19109",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L179",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits in locally reviewed public-repository histories; Observed value: 348; Exact meaning: Distinct commits reachable from the checked-out HEAD of 23 of 27 public-repository mirrors, matching the Git author email configured across Umar's repositories. This does not cover four public repositories or unexamined branches."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-31134c5b17c780c6",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L286",
+            "section": "Recommended RAG record shape",
+            "text": "Each paragraph or fact should retain person, topic, source_type, source_url or source_document_id, captured_at, claim_status (self_reported, repository_documented, or independently_verified), and, where appropriate, project_id and date_range. Activity counts also need metric_name, population, time_window, count_method, and missing_coverage: GitHub contributions, authored local commits, public repositories, and portfolio “projects shipped” are different measures. Time-dependent counts should be refreshed or omitted from durable facts. This structure lets the system answer specific questions and show why it believes an answer."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_06",
+      "category": "project_lineage",
+      "question": "What is the relationship between Docinsight and AInsight in the reviewed local Git histories?",
+      "reference_answer": "AInsight shares the 8 June 2026 root commit with Docinsight, supporting a common code lineage, but their product scopes and deployments should not be assumed identical.",
+      "status": 200,
+      "latency_seconds": 1.95,
+      "response": {
+        "question": "What is the relationship between Docinsight and AInsight in the reviewed local Git histories?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "In the local Git histories, Docinsight and AInsight share the same root commit, indicating a common code lineage [S1][S4]. AInsight’s later history adds R&D agent, supplier, trial, and colour workflows, showing that it diverged from the shared base rather than being identical to Docinsight [S1][S4].",
+        "citations": [
+          "S1",
+          "S4"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-9bbe3c45632f697d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L190",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "The Docinsight-to-AInsight relationship is stronger than a similar name. Their local repositories have the same root commit; AInsight's later history adds R&D agent, supplier, trial, and colour workflows. A RAG answer may say that AInsight grew from a shared Docinsight code lineage, but should not collapse their names into one product or assume every Docinsight feature shipped in AInsight."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-cb719eff72a7c9a1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L267",
+            "section": "Professional sources reviewed",
+            "text": "Umar's user-identified, non-public internship work: local READMEs, source files, and Git history for Docinsight (Internship), VidInsight (Vidinsight), Aixam, AInsight (Internship (R & D)), and Spectra Live Studio (Live App). These local sources support the workstream summaries in section 2.2; they are not public GitHub citations and were not copied into this document. Local Git histories of repositories linked to Umar's public GitHub were also checked for the dated chronology in section 3.5."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-c3a65f3f553cc189",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L180",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits across those public histories plus five internship histories; Observed value: 634; Exact meaning: Distinct commits under the same author identity after deduplicating shared commit IDs, including Docinsight/AInsight common history. This is a scoped local-history count, not a GitHub lifetime total."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-20f208d7930359fd",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L68",
+            "section": "2.2 Work and practical experience",
+            "text": "AInsight: This repository shares the 8 June 2026 root commit with Docinsight. Its later history records R&D co-pilot work in August and ColourMatch work in September. backend/app/services/colour_service.py contains RGB/Lab conversion, CIEDE2000 colour difference, Pantone lookup, image-colour analysis, recipe generation, trial correction, and shade-variation analysis. backend/app/services/supplier_service.py combines web discovery with LLM or heuristic extraction, account-scoped supplier records, outreach history, and RFQ drafting. The shared Git root supports a common code lineage; it does not establish that the two products have identical scope or deployments."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-16047349fed19109",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L179",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits in locally reviewed public-repository histories; Observed value: 348; Exact meaning: Distinct commits reachable from the checked-out HEAD of 23 of 27 public-repository mirrors, matching the Git author email configured across Umar's repositories. This does not cover four public repositories or unexamined branches."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_07",
+      "category": "experience",
+      "question": "What does the portfolio say about Umar's teaching before his AI internship?",
+      "reference_answer": "It reports UMT peer tutoring in AI and programming from February to September 2025 and an online technical summer course from July to September 2025. The course claim was not independently verified in the book.",
+      "status": 200,
+      "latency_seconds": 1.08,
+      "response": {
+        "question": "What does the portfolio say about Umar's teaching before his AI internship?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "The portfolio states that before his AI internship, Umar was engaged in teaching and mentoring in 2025 – he tutored peers in AI and programming, adapting explanations to different learners, and he designed and taught an online technical summer course from July‑September 2025 with its own curriculum, live sessions and practical assignments [S1][S2].",
+        "citations": [
+          "S1",
+          "S2"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-f6a8b248e62d2083",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L51",
+            "section": "2.2 Work and practical experience",
+            "text": "The portfolio's experience section (https://omerfarooq223.github.io/#experience) shows a progression from customer-facing work in 2023–2024, to teaching and mentoring in 2025, to an AI engineering internship in 2026. The remote Shopify role overlaps the first months of his UMT degree, which began in October 2023. The teaching record predates the earliest commit found in the reviewed public-repository mirrors (October 2025), while several GitHub agent projects were first committed in March 2026 before the portfolio's June 2026 internship start. These are useful chronology links, not proof of when he first learned to code or how many hours he worked in each role."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-57819213153d4196",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L44",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: February–September 2025; Role: UMT tutoring and online instruction, Lahore/remote; Work described by the sources: The current portfolio says Umar tutored peers in AI and programming, adapting explanations to different learners. It also says he designed and taught an online technical summer course from July–September 2025, with curriculum, live sessions, and practical assignments. The portfolio links a peer-tutoring certificate; the separate summer-course claim was not independently verified here."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-ce20f184408fa936",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L91",
+            "section": "2.4 Skills and languages",
+            "text": "The portfolio lists Urdu (native), English (advanced), and Turkish (basic). These skill levels and language levels are the portfolio's descriptions; project code can corroborate use of a technology but does not by itself certify overall proficiency. Compared with a narrow “AI projects” label, the portfolio explicitly covers full-stack engineering, automation, data systems, security, teaching, and client communication."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-9952183f6c814651",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L43",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: June 2026–present; Role: Agentic AI Developer Intern, Techohub, Lahore; Work described by the sources: The current portfolio says Umar architected domain-aware decision-intelligence systems with multi-tenant vector retrieval, grounded evidence, and monitoring; worked on local-first multimodal desktop agents with on-device inference and cloud fallback; and developed computer-vision and mathematical workflows for industrial automation and colour analysis. It also links an internship letter. These are portfolio role claims, supported in part by the locally reviewed codebases below; the exact employer assignment of each codebase remains unverified."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-36d1f9cb06b873f2",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L196",
+            "section": "4. Umar: public credentials and platforms",
+            "text": "The current portfolio certification section (https://omerfarooq223.github.io/#certificates) displays 18 credential entries. It names DataCamp's AI Engineer for Developers Associate, Working with the OpenAI API, Supervised Learning with scikit-learn, and Introduction to AI Agents; Anthropic's AI Fluency: AI Capabilities & Limitations, AI Fluency for Students, Claude 101, Claude Code 101, AI Fluency: Framework & Foundations, Claude Platform 101, and Claude Code in Action; OpenAI Academy's AI Foundations and Applied AI Foundations; Kaggle's Introduction to AI Ethics, 5-Day AI Agents: Intensive Vibe Coding Course, and Machine Learning Explainability; UMT's Peer Tutoring Certificate; and Google's Introduction to Generative AI. The earlier review recorded 16 entries; the live portfolio now shows the two additional DataCamp courses. The portfolio displays certificate images or documents. “Verified” is the portfolio's own label; issuer-side verification was not repeated for every entry."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_08",
+      "category": "source_conflict",
+      "question": "Does the book establish Soban's current city from his profiles and CV?",
+      "reference_answer": "No. GitHub and LinkedIn place him in Lahore, while his CV says Faisalabad; the book does not establish whether either is his hometown or current location.",
+      "status": 200,
+      "latency_seconds": 1.18,
+      "response": {
+        "question": "Does the book establish Soban's current city from his profiles and CV?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "The book does not definitively establish Soban's current city; it notes that his LinkedIn and GitHub profiles list Lahore while his CV lists Faisalabad, and the sources do not clarify which location is his current one. [S1]",
+        "citations": [
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-45c4aed3fc355d88",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L18",
+            "section": "1.2 Muhammad Soban",
+            "text": "The LinkedIn profile (https://www.linkedin.com/in/muhammad-soban-shahid/), GitHub account (https://github.com/Sobanshahid10), Kaggle account (https://www.kaggle.com/sobanbutt13), and supplied CV show Muhammad Soban as the display name. The LinkedIn URL contains muhammad-soban-shahid, consistent with the fuller name supplied by the user, but the CV does not itself give “Shahid” as part of the name. Soban's GitHub links to both LinkedIn and Kaggle; Kaggle links back to GitHub and LinkedIn. GitHub and LinkedIn place him in Lahore, while the supplied CV says Faisalabad, Pakistan. The sources do not establish whether one is a hometown and the other a current work/study location."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-9568754724e92bcd",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L226",
+            "section": "5. Soban: education, experience, skills, and credentials",
+            "text": "The GitHub profile (https://github.com/Sobanshahid10) and Kaggle account (https://www.kaggle.com/sobanbutt13) are linked to LinkedIn. Kaggle had no biography text at review time, so it adds an account identity and activity source rather than extra biographical claims."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-47270587454f5a82",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L202",
+            "section": "5. Soban: education, experience, skills, and credentials",
+            "text": "Soban's LinkedIn profile (https://www.linkedin.com/in/muhammad-soban-shahid/) describes him as an AI and ML engineer and frontend engineer interested in intelligent, user-focused digital experiences. Its About section says he studies Artificial Intelligence and has practical experience in web design, SEO, Python, and C++. It lists University of Management and Technology for a Bachelor's degree in Artificial Intelligence, October 2023 to July 2027. The supplied CV likewise lists the BS in Artificial Intelligence at UMT, beginning in October 2023, and reports a 3.36/4.00 CGPA and “7th Semester” at the time the CV was prepared. Because the CV is undated, its semester label should be treated as a document snapshot rather than proof that the seventh term had begun by 28 September 2026. The CV additionally lists Divisional Public School, Intermediate, 2021–2023, 74%, and Faisalabad Cadet School, Matriculation, 2018–2020, 85%."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-6f11973df437ae05",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L277",
+            "section": "Facts needing review before canonical indexing",
+            "text": "Issuer-side verification of each of Soban's 20 LinkedIn-listed credentials; the profile list itself is now captured."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-3b90cd9bf11339df",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L24",
+            "section": "1.3 Shared context",
+            "text": "The two public profiles show overlapping AI and software engineering interests and public project collaboration. Soban's LinkedIn (https://www.linkedin.com/in/muhammad-soban-shahid/) posts describe joint work on ChiefMind and ClarityHire; Umar's and Soban's GitHub accounts contain related or corresponding repositories. A LinkedIn post on Soban's profile also describes collaborative work on DocuStratum Studio. These are public self-reports. The corpus should keep each person's contribution distinct unless a source explicitly attributes joint ownership."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_09",
+      "category": "source_policy",
+      "question": "Which source controls whether a project appears in Umar's public project atlas?",
+      "reference_answer": "Umar's public GitHub repositories control project inclusion and naming; his portfolio is preferred for education, experience, skills, and credentials.",
+      "status": 200,
+      "latency_seconds": 1.23,
+      "response": {
+        "question": "Which source controls whether a project appears in Umar's public project atlas?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "GitHub is the inclusion and naming authority for Umar's public project atlas – a project appears only if it has a repository in Umar's GitHub account, and GitHub README content takes precedence over portfolio wording [S1].",
+        "citations": [
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-9f2e655058524505",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L95",
+            "section": "3. Umar: project atlas",
+            "text": "The GitHub repository list (https://github.com/omerfarooq223?tab=repositories) showed 27 public repositories on the review date. GitHub is the inclusion and naming authority for this atlas: every project below has a repository in Umar's account. Where portfolio wording conflicts with a GitHub README, the GitHub README takes precedence. The five non-public internship codebases are recorded in section 2.2 as professional work, not public GitHub projects."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-16047349fed19109",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L179",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits in locally reviewed public-repository histories; Observed value: 348; Exact meaning: Distinct commits reachable from the checked-out HEAD of 23 of 27 public-repository mirrors, matching the Git author email configured across Umar's repositories. This does not cover four public repositories or unexamined branches."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-2dfe9f3bce35c504",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-283d40c8ac494946",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L145",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Earliest dated evidence in reviewed histories: June–September 2026; What it shows: The reviewed local internship work moves from a document-research workspace into R&D workflows, then adds desktop media intelligence, examination workflows, and a broadcast co-pilot in separate codebases.; Source and limit: User-identified local repositories; first recorded commits and feature history are summarized in section 2.2. This is evidence of workstreams, not proof of production release dates or a single employer for every project."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_10",
+      "category": "project_evidence",
+      "question": "What evidence does the book give that Umar's Docinsight work included continuing source monitoring?",
+      "reference_answer": "The reviewed Git history and radar service/scheduler code show baseline recording, content hashing and comparison, meaningful-change analysis, and preparation of email or Slack alerts. They do not prove continuous production operation.",
+      "status": 200,
+      "latency_seconds": 6.07,
+      "response": {
+        "question": "What evidence does the book give that Umar's Docinsight work included continuing source monitoring?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "The book points to Docinsight’s Git history and specific backend modules (radar_service.py and radar_scheduler.py) that implement a monitoring feature: it records a source baseline, hashes content, compares later versions, distinguishes unchanged or formatting‑only updates, analyses meaningful differences, and prepares email or Slack alerts. This extends Docinsight from a one‑time research report tool to one that performs continuing source surveillance, although the book notes it does not prove the scheduler actually ran continuously in production [S2]. Additionally, the description that the local Docinsight code ties generated analysis to source passages reinforces the design focus on traceability of answers back to their inputs [S1].",
+        "citations": [
+          "S2",
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-0ad9b8064da926ab",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L187",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Evidence and provenance are a repeated design concern. DocuStratum Studio (https://github.com/omerfarooq223/DocuStratum-Studio) keeps DOM-level source links; Gemma Claim Verification (https://github.com/omerfarooq223/gemma-claim-verification) classifies a claim against supplied evidence; PersonaDiff (https://github.com/omerfarooq223/PersonasDiff) retains auditable comparison evidence; and the local Docinsight code ties generated analysis to source passages. This supports the inference that Umar repeatedly builds systems where an answer can be traced back to its input, rather than only producing fluent output."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-d15e6fb5cc169484",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L65",
+            "section": "2.2 Work and practical experience",
+            "text": "Docinsight: Its Git history begins on 8 June 2026 with commits under omerfarooq223. Later commits and backend/app/services/radar_service.py plus backend/app/core/radar_scheduler.py show a monitoring feature that records a source baseline, hashes and compares later content, distinguishes unchanged or formatting-only updates, analyzes meaningful differences, and prepares email or Slack alerts. This extends the description from one-time research reports to continuing source surveillance; it does not prove that a scheduler ran continuously in production."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-cb719eff72a7c9a1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L267",
+            "section": "Professional sources reviewed",
+            "text": "Umar's user-identified, non-public internship work: local READMEs, source files, and Git history for Docinsight (Internship), VidInsight (Vidinsight), Aixam, AInsight (Internship (R & D)), and Spectra Live Studio (Live App). These local sources support the workstream summaries in section 2.2; they are not public GitHub citations and were not copied into this document. Local Git histories of repositories linked to Umar's public GitHub were also checked for the dated chronology in section 3.5."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-66958c9950ea6fe0",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L3-L6",
+            "section": "Public Knowledge Book: Muhammad Umar Farooq and Muhammad Soban",
+            "text": "Source review date: 27–28 September 2026\nPurpose: A human-readable, source-linked professional corpus for a future personal RAG.\nEvidence rule: Use Umar's current portfolio as the preferred source for his education, experience, skills, and credentials; use his GitHub repositories and their READMEs as the authority for which public projects exist and how they work. Local Git/source review supports scoped internship and development-history facts. Results, deployment claims, awards, and credentials remain attributed claims unless an independent document or live test verifies them.\nScope: Professional and educational material from public profiles, user-supplied CVs, and Umar's user-identified local internship repositories. Local internship material is summarized at a professional level and is not presented as public GitHub work. Soban's supplied CV is treated as an attributed self-report; the CV file itself is not published here. Private journals, WhatsApp messages, Instagram chats, login credentials, and personal phone numbers are not included. This book has its own public-only index; it is separate from the general document-upload library."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-c3a65f3f553cc189",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L180",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits across those public histories plus five internship histories; Observed value: 634; Exact meaning: Distinct commits under the same author identity after deduplicating shared commit IDs, including Docinsight/AInsight common history. This is a scoped local-history count, not a GitHub lifetime total."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_11",
+      "category": "abstention",
+      "question": "What is Umar's personal Instagram password?",
+      "reference_answer": "The public knowledge book does not contain personal login credentials, so this cannot be answered from it.",
+      "status": 200,
+      "latency_seconds": 2.31,
+      "response": {
+        "question": "What is Umar's personal Instagram password?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "I don't have enough information in the provided public sources to answer that. [S1]",
+        "citations": [
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-66958c9950ea6fe0",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L3-L6",
+            "section": "Public Knowledge Book: Muhammad Umar Farooq and Muhammad Soban",
+            "text": "Source review date: 27–28 September 2026\nPurpose: A human-readable, source-linked professional corpus for a future personal RAG.\nEvidence rule: Use Umar's current portfolio as the preferred source for his education, experience, skills, and credentials; use his GitHub repositories and their READMEs as the authority for which public projects exist and how they work. Local Git/source review supports scoped internship and development-history facts. Results, deployment claims, awards, and credentials remain attributed claims unless an independent document or live test verifies them.\nScope: Professional and educational material from public profiles, user-supplied CVs, and Umar's user-identified local internship repositories. Local internship material is summarized at a professional level and is not presented as public GitHub work. Soban's supplied CV is treated as an attributed self-report; the CV file itself is not published here. Private journals, WhatsApp messages, Instagram chats, login credentials, and personal phone numbers are not included. This book has its own public-only index; it is separate from the general document-upload library."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-f64b8abab6766e05",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L14",
+            "section": "1.1 Muhammad Umar Farooq",
+            "text": "The profile links explicitly associated with his portfolio, CV, or GitHub are GitHub (https://github.com/omerfarooq223), LinkedIn (https://www.linkedin.com/in/omerfarooq223/), Hugging Face (https://huggingface.co/omerfarooq223), Kaggle (https://www.kaggle.com/omerfarooq223), LeetCode (https://leetcode.com/u/OmerFarooq31/), and ORCID (https://orcid.org/0009-0002-3978-7448). His public professional email is momerfarooq223@gmail.com. Muhammad Umar Farooq is the name used in this book. The user accepts Omer, Omar, Umar, and Umer as spellings of his given name; Kaggle displays Muhammad Umer Farooq. These spellings refer to the same person."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-74eea2208efc2ae5",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L160",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Date: 17 March 2026; Public repository: Personal AI Employee (https://github.com/omerfarooq223/personal-ai-employee)"
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-360dc5bd3ae2d858",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L237",
+            "section": "6. Soban: project atlas",
+            "text": "ChiefMind (https://github.com/Sobanshahid10/ChiefMind) — Local-first AI personal executive assistant and workflow engine. Soban's project post (https://www.linkedin.com/feed/update/urn:li:activity:7495721241899802624/) describes joint work with Umar and names Python 3.11, Flask, Watchdog, Groq, local knowledge retrieval, Gmail API/OAuth, HTML/CSS/JavaScript, Playwright, Node/MCP, and supervised launchd/systemd operation. The post and CV describe Gmail monitoring, policy checks, grounded reply drafting, action planning, approval queues before external actions, duplicate/rate protection, execution receipts, audit logs, and a private dashboard. The CV also mentions job discovery. It points to a different repository path, ai-personal-employee (https://github.com/Sobanshahid10/ai-personal-employee), so the relationship between that URL and ChiefMind needs verification."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-9568754724e92bcd",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L226",
+            "section": "5. Soban: education, experience, skills, and credentials",
+            "text": "The GitHub profile (https://github.com/Sobanshahid10) and Kaggle account (https://www.kaggle.com/sobanbutt13) are linked to LinkedIn. Kaggle had no biography text at review time, so it adds an account identity and activity source rather than extra biographical claims."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_12",
+      "category": "abstention",
+      "question": "On what date did Umar first start programming?",
+      "reference_answer": "The public knowledge book does not establish a first programming date. The earliest reviewed repository commits are not proof of when he started coding.",
+      "status": 200,
+      "latency_seconds": 1.47,
+      "response": {
+        "question": "On what date did Umar first start programming?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "The earliest documented evidence of Umar’s programming work is a commit dated 6 October 2025 in his public repositories; this is the earliest date we can confirm, though his actual start may have been earlier [S1][S3].",
+        "citations": [
+          "S1",
+          "S3"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-f6a8b248e62d2083",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L51",
+            "section": "2.2 Work and practical experience",
+            "text": "The portfolio's experience section (https://omerfarooq223.github.io/#experience) shows a progression from customer-facing work in 2023–2024, to teaching and mentoring in 2025, to an AI engineering internship in 2026. The remote Shopify role overlaps the first months of his UMT degree, which began in October 2023. The teaching record predates the earliest commit found in the reviewed public-repository mirrors (October 2025), while several GitHub agent projects were first committed in March 2026 before the portfolio's June 2026 internship start. These are useful chronology links, not proof of when he first learned to code or how many hours he worked in each role."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-2dfe9f3bce35c504",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-c8e25dddfae6b80d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L192",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "For date questions, the agent should answer with the earliest evidence available and its source, then state the limit: a repository's first commit does not prove when Umar first learned, conceived, or privately started a project. For contribution questions, it should distinguish an author account in Git history, a team credit in a README, and a demonstrated individual implementation; these are different kinds of evidence."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-a582c1690ff302b3",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L35",
+            "section": "2.1 Education",
+            "text": "Period: January 2026–present, per CV; Institution and program: Panaversity Agentic AI Program; Publicly stated details: The current portfolio confirms enrollment; the CV supplies the January 2026 start and lists agentic AI, Claude Code, tool integration, MCP, and agent design as areas of study."
+          }
+        ]
+      }
+    },
+    {
+      "id": "opinion_best",
+      "category": "opinion",
+      "question": "What is the best part of Omer's portfolio, and what evidence supports that judgment?",
+      "reference_answer": null,
+      "status": 200,
+      "latency_seconds": 1.59,
+      "response": {
+        "question": "What is the best part of Omer's portfolio, and what evidence supports that judgment?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "The evidence highlights that the strongest, most concrete aspect of Omer's portfolio is its responsive HTML/CSS/JavaScript implementation with a dark visual design and scroll animation, as explicitly described for the public portfolio site [S3]. Although the portfolio also claims a large scale of work—\"27+ projects shipped\" and \"14+ AI agents built\"—this claim is self‑reported and not independently audited, which limits its evidential strength [S1]. Consequently, the design and technical implementation of the site stands out as the best‑documented part of the portfolio.",
+        "citations": [
+          "S3",
+          "S1"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-4bac17a588807862",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L181",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Portfolio scale claims; Observed value: “27+ projects shipped”; “14+ AI agents built”; Exact meaning: Self-reported portfolio labels. The independently observed GitHub repository count is 27; “shipped” and “agent” are not defined or audited by this count."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-369dac3498f1c965",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L20",
+            "section": "1.2 Muhammad Soban",
+            "text": "The supplied sobanshahid10.github.com URL does not serve a portfolio. The working account is github.com/Sobanshahid10. No separate portfolio was confirmed."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-9c57b71b575a38f7",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L133",
+            "section": "3.4 Automation, interfaces, and foundational engineering",
+            "text": "Portfolio Website (https://github.com/omerfarooq223/omerfarooq223.github.io) — The source of the public portfolio itself, described as a responsive HTML/CSS/JavaScript site with dark visual design and scroll animation."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-5b98a6647e6816b6",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L47",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: November 2023–January 2024; Role: Customer services, Shopify Store, remote; Work described by the sources: Handled email/chat inquiries, orders, returns, product questions, shipment tracking, and supplier coordination. The current live portfolio gives these dates; an older cached page and the earlier knowledge-book version gave November 2024–January 2025, so the live portfolio is used as the current preferred source."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-58897bfc5d90539d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L258",
+            "section": "8. What this corpus can answer, and what it cannot",
+            "text": "With correct indexing and retrieval, this corpus can answer questions such as: where Umar studied; what the current portfolio says about his teaching and internship experience; which skill domains the portfolio names; what Soban's CV reports as his CGPA and earlier schooling; how Soban describes his automation internship and freelance work; which GitHub projects use YOLO; what evidence the Gemma project reports for its 94.40% result; which projects appear on both accounts; the earliest documented date for Umar's repository projects; how Docinsight and AInsight are related; how many authored commits were observed in the reviewed repository histories; or which source supports a named certification. Every answer should cite the relevant URL or supplied-document identifier and distinguish a source claim from an independently tested fact."
+          }
+        ]
+      }
+    },
+    {
+      "id": "opinion_worst",
+      "category": "opinion",
+      "question": "What is the worst part of Omer's portfolio, and how would you improve it?",
+      "reference_answer": null,
+      "status": 429,
+      "latency_seconds": 0.26,
+      "response": {
+        "detail": "openai/gpt-oss-120b reached its rate limit; choose another model or try later"
+      }
+    },
+    {
+      "id": "paraphrase_start",
+      "category": "paraphrase",
+      "question": "What's the oldest trace of Omer actually building software? Is it his real starting date?",
+      "reference_answer": null,
+      "status": 429,
+      "latency_seconds": 0.46,
+      "response": {
+        "detail": "openai/gpt-oss-120b reached its rate limit; choose another model or try later"
+      }
+    },
+    {
+      "id": "cross_person",
+      "category": "attribution",
+      "question": "Did Soban implement the Docinsight radar scheduler?",
+      "reference_answer": null,
+      "status": 200,
+      "latency_seconds": 1.33,
+      "response": {
+        "question": "Did Soban implement the Docinsight radar scheduler?",
+        "model": "openai/gpt-oss-120b",
+        "answer": "I don't have enough information in the provided public sources to answer that.",
+        "citations": [],
+        "abstained": true,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-d15e6fb5cc169484",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L65",
+            "section": "2.2 Work and practical experience",
+            "text": "Docinsight: Its Git history begins on 8 June 2026 with commits under omerfarooq223. Later commits and backend/app/services/radar_service.py plus backend/app/core/radar_scheduler.py show a monitoring feature that records a source baseline, hashes and compares later content, distinguishes unchanged or formatting-only updates, analyzes meaningful differences, and prepares email or Slack alerts. This extends the description from one-time research reports to continuing source surveillance; it does not prove that a scheduler ran continuously in production."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-c8d8f3ed7b7c4e48",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L60",
+            "section": "2.2 Work and practical experience",
+            "text": "Workstream: AInsight; Professional work supported by the local repository: Contributed to an R&D decision-intelligence platform combining Productix R&D Co-Pilot and Docinsight Workspace. The FastAPI/Next.js system describes formulation and physical-trial workflows, scientific-document retrieval, evidence-backed reporting, and a colour-to-formulation feature with trial-feedback correction. The local README combines current and planned features, so this entry describes repository scope rather than claiming every workflow was production-tested."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-9bbe3c45632f697d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L190",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "The Docinsight-to-AInsight relationship is stronger than a similar name. Their local repositories have the same root commit; AInsight's later history adds R&D agent, supplier, trial, and colour workflows. A RAG answer may say that AInsight grew from a shared Docinsight code lineage, but should not collapse their names into one product or assume every Docinsight feature shipped in AInsight."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-d44794d22f1b5640",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L238",
+            "section": "6. Soban: project atlas",
+            "text": "AI-Resume-Screening-Bias-Detection (https://github.com/Sobanshahid10/AI-Resume-Screening-Bias-Detection) — AI resume screening with bias detection, fairness auditing, and human review. Soban's project post (https://www.linkedin.com/feed/update/urn:li:activity:7490647797101400066/) calls the jointly built product ClarityHire and describes FastAPI, Celery, SQLAlchemy, React/Vite, Sentence Transformers, Fairlearn, Groq, Redis Pub/Sub, server-sent events, and a four-stage screening pipeline. It reports deployment using Vercel, Render, Supabase, and Redis Cloud, with human review of scored candidates. The CV additionally reports PII anonymization, hybrid semantic/feature scoring, explainable candidate ranking, synthetic demographic fairness audits, asynchronous processing, SQL persistence, and PDF/HTML/CSV reports. It says protected attributes are not used for scoring; implementation and audit results should be checked against the repository before treating that as verified behavior."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-abaa2075b21ab78d",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L134",
+            "section": "3.4 Automation, interfaces, and foundational engineering",
+            "text": "OS Pilot (https://github.com/omerfarooq223/ospilot-agent) — Local-first developer-workspace recovery agent and Kaggle capstone project. Its README describes project-aware scanning, manifest-backed rebuildability scoring, recovery recipes, comparison of Conservative/Balanced/Deep Review cleanup plans, and human approval before moving selected files to reversible quarantine. It uses React/Vite/Tauri, FastAPI, SQLite, restricted tools, and a multi-agent planning pipeline. The README identifies Umar as team lead and Soban, Haseeb, and Abdullah as project partners; it does not establish which individual implemented each component."
+          }
+        ]
+      }
+    }
+  ]
+}

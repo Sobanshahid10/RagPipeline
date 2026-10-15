@@ -1,0 +1,150 @@
+{
+  "run_at_utc": "2026-09-29T01:46:10.500271+00:00",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "rows": [
+    {
+      "category": "chronology",
+      "question": "When did Umar start doing projects? Distinguish earliest evidence from the true start of coding.",
+      "model": "gemini-3.5-flash-lite",
+      "answer": null,
+      "raw_answer": "{\"answer\":\"The earliest dated evidence of Umar doing projects is 6 October 2025, found in the available local histories of the DSA_CPP and YOLO Vehicle Detection repositories [S1, S4]. However, commit dates only indicate when work entered those available histories and do not prove when he first learned, conceived, privately started a project, or when his true coding start date was [S1, S2, S4].\",\"citations\":[\"S1\",\"S4\",\"S2\"],\"abstained\":false}",
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-c8e25dddfae6b80d",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L192",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "For date questions, the agent should answer with the earliest evidence available and its source, then state the limit: a repository's first commit does not prove when Umar first learned, conceived, or privately started a project. For contribution questions, it should distinguish an author account in Git history, a team credit in a README, and a demonstrated individual implementation; these are different kinds of evidence."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-2dfe9f3bce35c504",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-58e9b1fd39b390fa",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L142",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Earliest dated evidence in reviewed histories: 6 October 2025; What it shows: DSA coursework/archive and a vehicle-detection repository were committed.; Source and limit: DSA_CPP (https://github.com/omerfarooq223/DSA_CPP), YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection); earliest available local Git commits, not proof of first-ever projects."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-f6a8b248e62d2083",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L51",
+          "section": "2.2 Work and practical experience",
+          "text": "The portfolio's experience section (https://omerfarooq223.github.io/#experience) shows a progression from customer-facing work in 2023–2024, to teaching and mentoring in 2025, to an AI engineering internship in 2026. The remote Shopify role overlaps the first months of his UMT degree, which began in October 2023. The teaching record predates the earliest commit found in the reviewed public-repository mirrors (October 2025), while several GitHub agent projects were first committed in March 2026 before the portfolio's June 2026 internship start. These are useful chronology links, not proof of when he first learned to code or how many hours he worked in each role."
+        }
+      ],
+      "error": "Response citations do not match inline citations or retrieved evidence"
+    },
+    {
+      "category": "paraphrase",
+      "question": "What is the oldest dated footprint of Omer building software that these records can actually prove?",
+      "model": "gemini-3.5-flash-lite",
+      "answer": null,
+      "raw_answer": "{\"answer\":\"The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, specifically in DSA_CPP and YOLO Vehicle Detection [S3]. This represents documented repository project work by October 2025, though these are the earliest available local Git commits rather than proof of first-ever projects [S3, S4].\",\"citations\":[\"S3\",\"S4\"],\"abstained\":false}",
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-badbeeca68d3578f",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L172",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "First-commit dates were not determined in this review for DocuStratum Studio (https://github.com/omerfarooq223/DocuStratum-Studio), CareerPilot Agent (https://github.com/omerfarooq223/CareerPilot-Agent), InboxVerity AI (https://github.com/omerfarooq223/InboxVerity-AI), or PersonasDiff (https://github.com/omerfarooq223/PersonasDiff). The agent should say that the date is unverified for these projects rather than borrowing a date from a similarly named repository or a last-updated label."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-2dfe9f3bce35c504",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-58e9b1fd39b390fa",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L142",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Earliest dated evidence in reviewed histories: 6 October 2025; What it shows: DSA coursework/archive and a vehicle-detection repository were committed.; Source and limit: DSA_CPP (https://github.com/omerfarooq223/DSA_CPP), YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection); earliest available local Git commits, not proof of first-ever projects."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-31134c5b17c780c6",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L286",
+          "section": "Recommended RAG record shape",
+          "text": "Each paragraph or fact should retain person, topic, source_type, source_url or source_document_id, captured_at, claim_status (self_reported, repository_documented, or independently_verified), and, where appropriate, project_id and date_range. Activity counts also need metric_name, population, time_window, count_method, and missing_coverage: GitHub contributions, authored local commits, public repositories, and portfolio “projects shipped” are different measures. Time-dependent counts should be refreshed or omitted from durable facts. This structure lets the system answer specific questions and show why it believes an answer."
+        }
+      ],
+      "error": "Response citations do not match inline citations or retrieved evidence"
+    },
+    {
+      "category": "conflict",
+      "question": "Why do the book's commit totals differ, and what can we safely conclude from each?",
+      "model": "gemini-3.5-flash-lite",
+      "answer": {
+        "answer": "The commit totals differ because GitHub contributions and authored local commits are different measures [S3]. Specifically, an older author identity with a different email was deliberately excluded from the authored-commit totals because its connection to the configured identity was not verified [S1]. From the totals, we can safely conclude that the 634 observed commits represent distinct commits under the same author identity after deduplicating shared commit IDs across public and five internship histories (a scoped local-history count rather than a GitHub lifetime total) [S2], while GitHub contributions reflect a different metric [S3].",
+        "citations": [
+          "S3",
+          "S1",
+          "S2"
+        ],
+        "abstained": false
+      },
+      "raw_answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-72dcadf045779225",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L183",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "The older omer author identity with a different email was deliberately excluded from the authored-commit totals because its connection to the configured identity was not verified. The agent should answer “How many commits has Umar made?” with the 634 observed in the reviewed local histories, name the scope and snapshot date, and say that an account-wide lifetime total is not established here. It should never answer 1,011 commits by relabeling GitHub contributions."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-c3a65f3f553cc189",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L180",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: Authored commits across those public histories plus five internship histories; Observed value: 634; Exact meaning: Distinct commits under the same author identity after deduplicating shared commit IDs, including Docinsight/AInsight common history. This is a scoped local-history count, not a GitHub lifetime total."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-31134c5b17c780c6",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L286",
+          "section": "Recommended RAG record shape",
+          "text": "Each paragraph or fact should retain person, topic, source_type, source_url or source_document_id, captured_at, claim_status (self_reported, repository_documented, or independently_verified), and, where appropriate, project_id and date_range. Activity counts also need metric_name, population, time_window, count_method, and missing_coverage: GitHub contributions, authored local commits, public repositories, and portfolio “projects shipped” are different measures. Time-dependent counts should be refreshed or omitted from durable facts. This structure lets the system answer specific questions and show why it believes an answer."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-c8e25dddfae6b80d",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L192",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "For date questions, the agent should answer with the earliest evidence available and its source, then state the limit: a repository's first commit does not prove when Umar first learned, conceived, or privately started a project. For contribution questions, it should distinguish an author account in Git history, a team credit in a README, and a demonstrated individual implementation; these are different kinds of evidence."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-fee51ebe1fd3d0d1",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+        }
+      ],
+      "error": null
+    }
+  ]
+}

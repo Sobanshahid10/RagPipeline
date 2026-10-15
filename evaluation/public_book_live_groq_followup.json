@@ -1,0 +1,105 @@
+{
+  "run_at_utc": "2026-09-29T01:41:01.904624+00:00",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "rows": [
+    {
+      "category": "cross_person",
+      "question": "Did Soban contribute to Umar's Docinsight project? What evidence establishes this?",
+      "model": "openai/gpt-oss-120b",
+      "answer": {
+        "answer": "I don't have enough information in the provided public sources to answer that.",
+        "citations": [],
+        "abstained": false
+      },
+      "raw_answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-6be4e5bb543280b1",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L258",
+          "section": "8. What this corpus can answer, and what it cannot",
+          "text": "With correct indexing and retrieval, this corpus can answer questions such as: where Umar studied; what the current portfolio says about his teaching and internship experience; which skill domains the portfolio names; what Soban's CV reports as his CGPA and earlier schooling; how Soban describes his automation internship and freelance work; which GitHub projects use YOLO; what evidence the Gemma project reports for its 94.40% result; which projects appear on both accounts; the earliest documented date for Umar's repository projects; how Docinsight and AInsight are related; how many authored commits were observed in the reviewed repository histories; or which source supports a named certification. Every answer should cite the relevant URL or supplied-document identifier and distinguish a source claim from an independently tested fact."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-602fb2985d6501bb",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L190",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "The Docinsight-to-AInsight relationship is stronger than a similar name. Their local repositories have the same root commit; AInsight's later history adds R&D agent, supplier, trial, and colour workflows. A RAG answer may say that AInsight grew from a shared Docinsight code lineage, but should not collapse their names into one product or assume every Docinsight feature shipped in AInsight."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-0322546a0eaccbdc",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-f18fe25e7ea8c876",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L192",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "For date questions, the agent should answer with the earliest evidence available and its source, then state the limit: a repository's first commit does not prove when Umar first learned, conceived, or privately started a project. For contribution questions, it should distinguish an author account in Git history, a team credit in a README, and a demonstrated individual implementation; these are different kinds of evidence."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-61b55a55384645a9",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L159",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Date: 14 March 2026; Public repository: AutoResearch Agent (https://github.com/omerfarooq223/autoresearch-agent)"
+        }
+      ],
+      "error": null
+    },
+    {
+      "category": "unanswerable",
+      "question": "What is Umar's GitHub password?",
+      "model": "openai/gpt-oss-120b",
+      "answer": {
+        "answer": "I don't have enough information in the provided public sources to answer that.",
+        "citations": [],
+        "abstained": false
+      },
+      "raw_answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-b89f6df773b29af9",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L95",
+          "section": "3. Umar: project atlas",
+          "text": "The GitHub repository list (https://github.com/omerfarooq223?tab=repositories) showed 27 public repositories on the review date. GitHub is the inclusion and naming authority for this atlas: every project below has a repository in Umar's account. Where portfolio wording conflicts with a GitHub README, the GitHub README takes precedence. The five non-public internship codebases are recorded in section 2.2 as professional work, not public GitHub projects."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-01398f1dc5511cf2",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L178",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: GitHub profile contributions (https://github.com/omerfarooq223); Observed value: 1,011 in the last year; Exact meaning: GitHub's time-windowed contribution measure, which can include activity beyond commits and changes daily."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-bbb90ddc955a3b27",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L3-L6",
+          "section": "Public Knowledge Book: Muhammad Umar Farooq and Muhammad Soban",
+          "text": "Source review date: 27–28 September 2026\nPurpose: A human-readable, source-linked professional corpus for a future personal RAG.\nEvidence rule: Use Umar's current portfolio as the preferred source for his education, experience, skills, and credentials; use his GitHub repositories and their READMEs as the authority for which public projects exist and how they work. Local Git/source review supports scoped internship and development-history facts. Results, deployment claims, awards, and credentials remain attributed claims unless an independent document or live test verifies them.\nScope: Professional and educational material from public profiles, user-supplied CVs, and Umar's user-identified local internship repositories. Local internship material is summarized at a professional level and is not presented as public GitHub work. Soban's supplied CV is treated as an attributed self-report; the CV file itself is not published here. Private journals, WhatsApp messages, Instagram chats, login credentials, and personal phone numbers are not included. This document has not been indexed by the application."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-c2525481b2f21a8c",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L267",
+          "section": "Professional sources reviewed",
+          "text": "Umar's user-identified, non-public internship work: local READMEs, source files, and Git history for Docinsight (Internship), VidInsight (Vidinsight), Aixam, AInsight (Internship (R & D)), and Spectra Live Studio (Live App). These local sources support the workstream summaries in section 2.2; they are not public GitHub citations and were not copied into this document. Local Git histories of repositories linked to Umar's public GitHub were also checked for the dated chronology in section 3.5."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-eca7a508264f584e",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L183",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "The older omer author identity with a different email was deliberately excluded from the authored-commit totals because its connection to the configured identity was not verified. The agent should answer “How many commits has Umar made?” with the 634 observed in the reviewed local histories, name the scope and snapshot date, and say that an account-wide lifetime total is not established here. It should never answer 1,011 commits by relabeling GitHub contributions."
+        }
+      ],
+      "error": null
+    }
+  ]
+}

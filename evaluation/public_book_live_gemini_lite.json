@@ -1,0 +1,110 @@
+{
+  "run_at_utc": "2026-09-29T01:44:25.540599+00:00",
+  "provider": "gemini",
+  "model": "gemini-3.5-flash-lite",
+  "rows": [
+    {
+      "category": "basic",
+      "question": "Which hackathon did Umar report winning, and what did its README measure?",
+      "model": "gemini-3.5-flash-lite",
+      "answer": {
+        "answer": "According to the portfolio and project repository, Umar reported winning the AI Seekho Day 2026 Gemma fine-tuning hackathon [S1]. Its README describes 472 correct predictions and zero invalid outputs [S1].",
+        "citations": [
+          "S1"
+        ],
+        "abstained": false
+      },
+      "raw_answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-d88f90bf5c51de36",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L73",
+          "section": "2.3 Awards and measurable claims",
+          "text": "AI Seekho Day 2026 Gemma fine-tuning hackathon: The portfolio and project repository (https://github.com/omerfarooq223/gemma-claim-verification) report first place. The selected checkpoint is reported at 94.40% accuracy and 94.38% macro-F1 on a 500-example event-day test set. The README describes 472 correct predictions and zero invalid outputs."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-cb16c5a41033bb8f",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L178",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: GitHub profile contributions (https://github.com/omerfarooq223); Observed value: 1,011 in the last year; Exact meaning: GitHub's time-windowed contribution measure, which can include activity beyond commits and changes daily."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-8df019da063ec710",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L63",
+          "section": "2.2 Work and practical experience",
+          "text": "Findings from source code and commit history beyond the READMEs:"
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-16047349fed19109",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L179",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: Authored commits in locally reviewed public-repository histories; Observed value: 348; Exact meaning: Distinct commits reachable from the checked-out HEAD of 23 of 27 public-repository mirrors, matching the Git author email configured across Umar's repositories. This does not cover four public repositories or unexamined branches."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-1954114c0bb201e4",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L78",
+          "section": "2.3 Awards and measurable claims",
+          "text": "Sources: portfolio (https://omerfarooq223.github.io/), CV (https://omerfarooq223.github.io/CV.pdf), Gemma repository (https://github.com/omerfarooq223/gemma-claim-verification)."
+        }
+      ],
+      "error": null
+    },
+    {
+      "category": "worst",
+      "question": "What is the worst part of Omer's portfolio? Give a constructive evidence-based critique without inventing flaws.",
+      "model": "gemini-3.5-flash-lite",
+      "answer": {
+        "answer": "Based on documented limitations in the evidence, a notable limitation or critique of the portfolio's scale claims is that labels such as “27+ projects shipped” and “14+ AI agents built” are self-reported portfolio labels that are not defined or audited by the independently observed GitHub repository count [S1]. Additionally, project code can corroborate technology use, but it does not by itself certify overall language or skill proficiency listed in the portfolio [S3].",
+        "citations": [
+          "S1",
+          "S3"
+        ],
+        "abstained": false
+      },
+      "raw_answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-4bac17a588807862",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L181",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: Portfolio scale claims; Observed value: “27+ projects shipped”; “14+ AI agents built”; Exact meaning: Self-reported portfolio labels. The independently observed GitHub repository count is 27; “shipped” and “agent” are not defined or audited by this count."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-0ad9b8064da926ab",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L187",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Evidence and provenance are a repeated design concern. DocuStratum Studio (https://github.com/omerfarooq223/DocuStratum-Studio) keeps DOM-level source links; Gemma Claim Verification (https://github.com/omerfarooq223/gemma-claim-verification) classifies a claim against supplied evidence; PersonaDiff (https://github.com/omerfarooq223/PersonasDiff) retains auditable comparison evidence; and the local Docinsight code ties generated analysis to source passages. This supports the inference that Umar repeatedly builds systems where an answer can be traced back to its input, rather than only producing fluent output."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-ce20f184408fa936",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L91",
+          "section": "2.4 Skills and languages",
+          "text": "The portfolio lists Urdu (native), English (advanced), and Turkish (basic). These skill levels and language levels are the portfolio's descriptions; project code can corroborate use of a technology but does not by itself certify overall proficiency. Compared with a narrow “AI projects” label, the portfolio explicitly covers full-stack engineering, automation, data systems, security, teaching, and client communication."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-369dac3498f1c965",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L20",
+          "section": "1.2 Muhammad Soban",
+          "text": "The supplied sobanshahid10.github.com URL does not serve a portfolio. The working account is github.com/Sobanshahid10. No separate portfolio was confirmed."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-9c57b71b575a38f7",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L133",
+          "section": "3.4 Automation, interfaces, and foundational engineering",
+          "text": "Portfolio Website (https://github.com/omerfarooq223/omerfarooq223.github.io) — The source of the public portfolio itself, described as a responsive HTML/CSS/JavaScript site with dark visual design and scroll animation."
+        }
+      ],
+      "error": null
+    }
+  ]
+}

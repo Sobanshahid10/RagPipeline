@@ -1,0 +1,88 @@
+[
+  {
+    "id": "public_01",
+    "question": "Do Omer, Omar, Umar, and Umer refer to different people in this book?",
+    "reference_answer": "No. The user accepts all four spellings of his given name; they refer to Muhammad Umar Farooq, the same person.",
+    "evidence": ["The user accepts **Omer, Omar, Umar, and Umer**", "These spellings refer to the same person"],
+    "category": "identity"
+  },
+  {
+    "id": "public_02",
+    "question": "What does Umar's current portfolio report as his UMT degree, CGPA, and scholarship?",
+    "reference_answer": "The portfolio reports a BS in Artificial Intelligence at UMT, a CGPA of 3.85/4.0, and a 70% merit scholarship.",
+    "evidence": ["BS Artificial Intelligence", "CGPA 3.85/4.0", "70% merit scholarship"],
+    "category": "education"
+  },
+  {
+    "id": "public_03",
+    "question": "Which hackathon does Umar's portfolio report winning, and what result did the project README report?",
+    "reference_answer": "The portfolio and repository report first place at the AI Seekho Day 2026 Gemma fine-tuning hackathon. The selected checkpoint is reported at 94.40% accuracy and 94.38% macro-F1 on a 500-example event-day test set.",
+    "evidence": ["AI Seekho Day 2026 Gemma fine-tuning hackathon", "94.40% accuracy and 94.38% macro-F1"],
+    "category": "achievement"
+  },
+  {
+    "id": "public_04",
+    "question": "When is Umar's public repository project work first documented, and does that prove when he started coding?",
+    "reference_answer": "The earliest dated commits in the reviewed histories are 6 October 2025. They document repository work by that date but do not prove when he first began coding or started his first project.",
+    "evidence": ["6 October 2025", "not proof of first-ever projects"],
+    "category": "chronology"
+  },
+  {
+    "id": "public_05",
+    "question": "What distinction does the book make between Umar's 348 and 634 commit counts?",
+    "reference_answer": "348 counts authored commits in the reviewed public repository histories; 634 counts distinct authored commits across those public histories plus five internship histories, with shared commit IDs deduplicated. Neither is a lifetime GitHub total.",
+    "evidence": ["Authored commits in locally reviewed public-repository histories", "Authored commits across those public histories plus five internship histories"],
+    "category": "chronology"
+  },
+  {
+    "id": "public_06",
+    "question": "What is the relationship between Docinsight and AInsight in the reviewed local Git histories?",
+    "reference_answer": "AInsight shares the 8 June 2026 root commit with Docinsight, supporting a common code lineage, but their product scopes and deployments should not be assumed identical.",
+    "evidence": ["shares the **8 June 2026 root commit** with Docinsight", "does not establish that the two products have identical scope or deployments"],
+    "category": "project_lineage"
+  },
+  {
+    "id": "public_07",
+    "question": "What does the portfolio say about Umar's teaching before his AI internship?",
+    "reference_answer": "It reports UMT peer tutoring in AI and programming from February to September 2025 and an online technical summer course from July to September 2025. The course claim was not independently verified in the book.",
+    "evidence": ["February–September 2025", "online technical summer course from July–September 2025"],
+    "category": "experience"
+  },
+  {
+    "id": "public_08",
+    "question": "Does the book establish Soban's current city from his profiles and CV?",
+    "reference_answer": "His permanent home residence is in Faisalabad, Pakistan, while he studies at UMT in Lahore and is actively open and willing to work in Lahore.",
+    "evidence": ["Faisalabad, Pakistan", "open and willing to work in **Lahore**"],
+    "category": "source_conflict"
+  },
+  {
+    "id": "public_09",
+    "question": "Which source controls whether a project appears in Umar's public project atlas?",
+    "reference_answer": "Umar's public GitHub repositories control project inclusion and naming; his portfolio is preferred for education, experience, skills, and credentials.",
+    "evidence": ["GitHub is the inclusion and naming authority for this atlas", "Use Umar's current portfolio as the preferred source for his education"],
+    "category": "source_policy"
+  },
+  {
+    "id": "public_10",
+    "question": "What evidence does the book give that Umar's Docinsight work included continuing source monitoring?",
+    "reference_answer": "The reviewed Git history and radar service/scheduler code show baseline recording, content hashing and comparison, meaningful-change analysis, and preparation of email or Slack alerts. They do not prove continuous production operation.",
+    "evidence": ["backend/app/services/radar_service.py", "does not prove that a scheduler ran continuously in production"],
+    "category": "project_evidence"
+  },
+  {
+    "id": "public_11",
+    "question": "What is Umar's personal Instagram password?",
+    "reference_answer": "The public knowledge book does not contain personal login credentials, so this cannot be answered from it.",
+    "evidence": [],
+    "answerable": false,
+    "category": "abstention"
+  },
+  {
+    "id": "public_12",
+    "question": "On what date did Umar first start programming?",
+    "reference_answer": "The public knowledge book does not establish a first programming date. The earliest reviewed repository commits are not proof of when he started coding.",
+    "evidence": ["not proof of when he first learned to code"],
+    "answerable": false,
+    "category": "abstention"
+  }
+]

@@ -1,0 +1,58 @@
+{
+  "run_at_utc": "2026-09-29T01:33:08.575583+00:00",
+  "provider": "groq",
+  "model": "openai/gpt-oss-120b",
+  "rows": [
+    {
+      "category": "basic",
+      "question": "Which hackathon did Umar report winning, and what did its README measure?",
+      "model": "openai/gpt-oss-120b",
+      "answer": {
+        "answer": "Umar reported winning the AI Seekho Day 2026 Gemma fine‑tuning hackathon, and its README measured 472 correct predictions and zero invalid outputs [S1].",
+        "citations": [
+          "S1"
+        ],
+        "abstained": false
+      },
+      "raw_answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-b027448a6afab51e",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L73",
+          "section": "2.3 Awards and measurable claims",
+          "text": "AI Seekho Day 2026 Gemma fine-tuning hackathon: The portfolio and project repository (https://github.com/omerfarooq223/gemma-claim-verification) report first place. The selected checkpoint is reported at 94.40% accuracy and 94.38% macro-F1 on a 500-example event-day test set. The README describes 472 correct predictions and zero invalid outputs."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-01398f1dc5511cf2",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L178",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: GitHub profile contributions (https://github.com/omerfarooq223); Observed value: 1,011 in the last year; Exact meaning: GitHub's time-windowed contribution measure, which can include activity beyond commits and changes daily."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-5a35dca35b6ee919",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L63",
+          "section": "2.2 Work and practical experience",
+          "text": "Findings from source code and commit history beyond the READMEs:"
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-bccf74c312a44e32",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L179",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: Authored commits in locally reviewed public-repository histories; Observed value: 348; Exact meaning: Distinct commits reachable from the checked-out HEAD of 23 of 27 public-repository mirrors, matching the Git author email configured across Umar's repositories. This does not cover four public repositories or unexamined branches."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-7d28faf96314ade2",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L78",
+          "section": "2.3 Awards and measurable claims",
+          "text": "Sources: portfolio (https://omerfarooq223.github.io/), CV (https://omerfarooq223.github.io/CV.pdf), Gemma repository (https://github.com/omerfarooq223/gemma-claim-verification)."
+        }
+      ],
+      "error": null
+    }
+  ]
+}

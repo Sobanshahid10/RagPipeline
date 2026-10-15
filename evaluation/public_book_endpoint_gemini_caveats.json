@@ -1,0 +1,115 @@
+{
+  "run_at_utc": "2026-09-29T02:06:15.000704+00:00",
+  "model": "gemini-3.5-flash-lite",
+  "rows": [
+    {
+      "id": "public_07",
+      "category": "experience",
+      "question": "What does the portfolio say about Umar's teaching before his AI internship?",
+      "reference_answer": "It reports UMT peer tutoring in AI and programming from February to September 2025 and an online technical summer course from July to September 2025. The course claim was not independently verified in the book.",
+      "status": 200,
+      "latency_seconds": 5.3,
+      "response": {
+        "question": "What does the portfolio say about Umar's teaching before his AI internship?",
+        "model": "gemini-3.5-flash-lite",
+        "answer": "The portfolio shows a progression where teaching and mentoring occurred in 2025, prior to an AI engineering internship in 2026 [S1]. Specifically, from February to September 2025, the portfolio states that Umar tutored peers in AI and programming while adapting explanations to different learners, and it links a peer-tutoring certificate [S2]. Additionally, the portfolio indicates he designed and taught an online technical summer course featuring curriculum, live sessions, and practical assignments from July to September 2025, though sources note that this separate summer-course claim was not independently verified [S2].",
+        "citations": [
+          "S1",
+          "S2"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-f6a8b248e62d2083",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L51",
+            "section": "2.2 Work and practical experience",
+            "text": "The portfolio's experience section (https://omerfarooq223.github.io/#experience) shows a progression from customer-facing work in 2023–2024, to teaching and mentoring in 2025, to an AI engineering internship in 2026. The remote Shopify role overlaps the first months of his UMT degree, which began in October 2023. The teaching record predates the earliest commit found in the reviewed public-repository mirrors (October 2025), while several GitHub agent projects were first committed in March 2026 before the portfolio's June 2026 internship start. These are useful chronology links, not proof of when he first learned to code or how many hours he worked in each role."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-57819213153d4196",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L44",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: February–September 2025; Role: UMT tutoring and online instruction, Lahore/remote; Work described by the sources: The current portfolio says Umar tutored peers in AI and programming, adapting explanations to different learners. It also says he designed and taught an online technical summer course from July–September 2025, with curriculum, live sessions, and practical assignments. The portfolio links a peer-tutoring certificate; the separate summer-course claim was not independently verified here."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-ce20f184408fa936",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L91",
+            "section": "2.4 Skills and languages",
+            "text": "The portfolio lists Urdu (native), English (advanced), and Turkish (basic). These skill levels and language levels are the portfolio's descriptions; project code can corroborate use of a technology but does not by itself certify overall proficiency. Compared with a narrow “AI projects” label, the portfolio explicitly covers full-stack engineering, automation, data systems, security, teaching, and client communication."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-9952183f6c814651",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L43",
+            "section": "2.2 Work and practical experience",
+            "text": "Period: June 2026–present; Role: Agentic AI Developer Intern, Techohub, Lahore; Work described by the sources: The current portfolio says Umar architected domain-aware decision-intelligence systems with multi-tenant vector retrieval, grounded evidence, and monitoring; worked on local-first multimodal desktop agents with on-device inference and cloud fallback; and developed computer-vision and mathematical workflows for industrial automation and colour analysis. It also links an internship letter. These are portfolio role claims, supported in part by the locally reviewed codebases below; the exact employer assignment of each codebase remains unverified."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-36d1f9cb06b873f2",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L196",
+            "section": "4. Umar: public credentials and platforms",
+            "text": "The current portfolio certification section (https://omerfarooq223.github.io/#certificates) displays 18 credential entries. It names DataCamp's AI Engineer for Developers Associate, Working with the OpenAI API, Supervised Learning with scikit-learn, and Introduction to AI Agents; Anthropic's AI Fluency: AI Capabilities & Limitations, AI Fluency for Students, Claude 101, Claude Code 101, AI Fluency: Framework & Foundations, Claude Platform 101, and Claude Code in Action; OpenAI Academy's AI Foundations and Applied AI Foundations; Kaggle's Introduction to AI Ethics, 5-Day AI Agents: Intensive Vibe Coding Course, and Machine Learning Explainability; UMT's Peer Tutoring Certificate; and Google's Introduction to Generative AI. The earlier review recorded 16 entries; the live portfolio now shows the two additional DataCamp courses. The portfolio displays certificate images or documents. “Verified” is the portfolio's own label; issuer-side verification was not repeated for every entry."
+          }
+        ]
+      }
+    },
+    {
+      "id": "public_10",
+      "category": "project_evidence",
+      "question": "What evidence does the book give that Umar's Docinsight work included continuing source monitoring?",
+      "reference_answer": "The reviewed Git history and radar service/scheduler code show baseline recording, content hashing and comparison, meaningful-change analysis, and preparation of email or Slack alerts. They do not prove continuous production operation.",
+      "status": 200,
+      "latency_seconds": 5.17,
+      "response": {
+        "question": "What evidence does the book give that Umar's Docinsight work included continuing source monitoring?",
+        "model": "gemini-3.5-flash-lite",
+        "answer": "The book provides evidence of continuing source monitoring in Docinsight through later commits and files such as `backend/app/services/radar_service.py` and `backend/app/core/radar_scheduler.py` [S2]. These components show a monitoring feature that records a source baseline, hashes and compares later content, distinguishes between unchanged or formatting-only updates, analyzes meaningful differences, and prepares email or Slack alerts [S2]. This evidence extends the description of Docinsight from one-time research reports to continuing source surveillance, though the book notes it does not prove a scheduler ran continuously in production [S2].",
+        "citations": [
+          "S2"
+        ],
+        "abstained": false,
+        "sources": [
+          {
+            "source_id": "S1",
+            "chunk_id": "pubbook-0ad9b8064da926ab",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L187",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Evidence and provenance are a repeated design concern. DocuStratum Studio (https://github.com/omerfarooq223/DocuStratum-Studio) keeps DOM-level source links; Gemma Claim Verification (https://github.com/omerfarooq223/gemma-claim-verification) classifies a claim against supplied evidence; PersonaDiff (https://github.com/omerfarooq223/PersonasDiff) retains auditable comparison evidence; and the local Docinsight code ties generated analysis to source passages. This supports the inference that Umar repeatedly builds systems where an answer can be traced back to its input, rather than only producing fluent output."
+          },
+          {
+            "source_id": "S2",
+            "chunk_id": "pubbook-d15e6fb5cc169484",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L65",
+            "section": "2.2 Work and practical experience",
+            "text": "Docinsight: Its Git history begins on 8 June 2026 with commits under omerfarooq223. Later commits and backend/app/services/radar_service.py plus backend/app/core/radar_scheduler.py show a monitoring feature that records a source baseline, hashes and compares later content, distinguishes unchanged or formatting-only updates, analyzes meaningful differences, and prepares email or Slack alerts. This extends the description from one-time research reports to continuing source surveillance; it does not prove that a scheduler ran continuously in production."
+          },
+          {
+            "source_id": "S3",
+            "chunk_id": "pubbook-cb719eff72a7c9a1",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L267",
+            "section": "Professional sources reviewed",
+            "text": "Umar's user-identified, non-public internship work: local READMEs, source files, and Git history for Docinsight (Internship), VidInsight (Vidinsight), Aixam, AInsight (Internship (R & D)), and Spectra Live Studio (Live App). These local sources support the workstream summaries in section 2.2; they are not public GitHub citations and were not copied into this document. Local Git histories of repositories linked to Umar's public GitHub were also checked for the dated chronology in section 3.5."
+          },
+          {
+            "source_id": "S4",
+            "chunk_id": "pubbook-66958c9950ea6fe0",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L3-L6",
+            "section": "Public Knowledge Book: Muhammad Umar Farooq and Muhammad Soban",
+            "text": "Source review date: 27–28 September 2026\nPurpose: A human-readable, source-linked professional corpus for a future personal RAG.\nEvidence rule: Use Umar's current portfolio as the preferred source for his education, experience, skills, and credentials; use his GitHub repositories and their READMEs as the authority for which public projects exist and how they work. Local Git/source review supports scoped internship and development-history facts. Results, deployment claims, awards, and credentials remain attributed claims unless an independent document or live test verifies them.\nScope: Professional and educational material from public profiles, user-supplied CVs, and Umar's user-identified local internship repositories. Local internship material is summarized at a professional level and is not presented as public GitHub work. Soban's supplied CV is treated as an attributed self-report; the CV file itself is not published here. Private journals, WhatsApp messages, Instagram chats, login credentials, and personal phone numbers are not included. This book has its own public-only index; it is separate from the general document-upload library."
+          },
+          {
+            "source_id": "S5",
+            "chunk_id": "pubbook-c3a65f3f553cc189",
+            "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L180",
+            "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+            "text": "Measure: Authored commits across those public histories plus five internship histories; Observed value: 634; Exact meaning: Distinct commits under the same author identity after deduplicating shared commit IDs, including Docinsight/AInsight common history. This is a scoped local-history count, not a GitHub lifetime total."
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+{
+  "run_at_utc": "2026-09-29T01:40:38.452741+00:00",
+  "provider": "gemini",
+  "model": "gemini-3.8-flash",
+  "rows": [
+    {
+      "category": "chronology",
+      "question": "When did Umar start doing projects? Distinguish earliest evidence from the true start of coding.",
+      "model": "gemini-3.8-flash",
+      "answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-0322546a0eaccbdc",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L138",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "When did Umar start doing projects? The earliest dated commits found in the available local histories of repositories linked to his public GitHub are 6 October 2025, in DSA_CPP (https://github.com/omerfarooq223/DSA_CPP) and YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection). The safe answer is: documented repository project work by October 2025; his first project could have been earlier. Commit dates indicate when work entered these available histories, not necessarily when the underlying idea or code began. This is a boundary on the answer, not an estimate of his overall programming start date."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-f18fe25e7ea8c876",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L192",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "For date questions, the agent should answer with the earliest evidence available and its source, then state the limit: a repository's first commit does not prove when Umar first learned, conceived, or privately started a project. For contribution questions, it should distinguish an author account in Git history, a team credit in a README, and a demonstrated individual implementation; these are different kinds of evidence."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-05affaed2def55af",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L147",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "First recorded commit lookup for public GitHub projects with an available local Git history. These dates can answer “when is this project first documented?” They are not launch dates, first coding dates, or proof that every commit was made public that day. The linked repository is the project identity; the date was read from its local Git history on 28 September 2026."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-f858a464fb37658c",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L142",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Earliest dated evidence in reviewed histories: 6 October 2025; What it shows: DSA coursework/archive and a vehicle-detection repository were committed.; Source and limit: DSA_CPP (https://github.com/omerfarooq223/DSA_CPP), YOLO Vehicle Detection (https://github.com/omerfarooq223/YOLO_Vehicle_Detection); earliest available local Git commits, not proof of first-ever projects."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-e2921eb9eb927460",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L51",
+          "section": "2.2 Work and practical experience",
+          "text": "The portfolio's experience section (https://omerfarooq223.github.io/#experience) shows a progression from customer-facing work in 2023–2024, to teaching and mentoring in 2025, to an AI engineering internship in 2026. The remote Shopify role overlaps the first months of his UMT degree, which began in October 2023. The teaching record predates the earliest commit found in the reviewed public-repository mirrors (October 2025), while several GitHub agent projects were first committed in March 2026 before the portfolio's June 2026 internship start. These are useful chronology links, not proof of when he first learned to code or how many hours he worked in each role."
+        }
+      ],
+      "error": "HTTPStatusError: Server error '503 Service Unavailable' for url 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503"
+    },
+    {
+      "category": "worst",
+      "question": "What is the worst part of Omer's portfolio? Give a constructive evidence-based critique without inventing flaws.",
+      "model": "gemini-3.8-flash",
+      "answer": null,
+      "sources": [
+        {
+          "source_id": "S1",
+          "chunk_id": "pubbook-2e4879de0ee5272e",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L181",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Measure: Portfolio scale claims; Observed value: “27+ projects shipped”; “14+ AI agents built”; Exact meaning: Self-reported portfolio labels. The independently observed GitHub repository count is 27; “shipped” and “agent” are not defined or audited by this count."
+        },
+        {
+          "source_id": "S2",
+          "chunk_id": "pubbook-83dd4f017f94fab1",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L187",
+          "section": "3.5 Evidence-backed chronology and useful cross-project insights",
+          "text": "Evidence and provenance are a repeated design concern. DocuStratum Studio (https://github.com/omerfarooq223/DocuStratum-Studio) keeps DOM-level source links; Gemma Claim Verification (https://github.com/omerfarooq223/gemma-claim-verification) classifies a claim against supplied evidence; PersonaDiff (https://github.com/omerfarooq223/PersonasDiff) retains auditable comparison evidence; and the local Docinsight code ties generated analysis to source passages. This supports the inference that Umar repeatedly builds systems where an answer can be traced back to its input, rather than only producing fluent output."
+        },
+        {
+          "source_id": "S3",
+          "chunk_id": "pubbook-ac3a1233c8deced3",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L91",
+          "section": "2.4 Skills and languages",
+          "text": "The portfolio lists Urdu (native), English (advanced), and Turkish (basic). These skill levels and language levels are the portfolio's descriptions; project code can corroborate use of a technology but does not by itself certify overall proficiency. Compared with a narrow “AI projects” label, the portfolio explicitly covers full-stack engineering, automation, data systems, security, teaching, and client communication."
+        },
+        {
+          "source_id": "S4",
+          "chunk_id": "pubbook-fab23387e6601d75",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L20",
+          "section": "1.2 Muhammad Soban",
+          "text": "The supplied sobanshahid10.github.com URL does not serve a portfolio. The working account is github.com/Sobanshahid10. No separate portfolio was confirmed."
+        },
+        {
+          "source_id": "S5",
+          "chunk_id": "pubbook-d6732eed7bb26777",
+          "citation": "PUBLIC_KNOWLEDGE_BOOK.md:L133",
+          "section": "3.4 Automation, interfaces, and foundational engineering",
+          "text": "Portfolio Website (https://github.com/omerfarooq223/omerfarooq223.github.io) — The source of the public portfolio itself, described as a responsive HTML/CSS/JavaScript site with dark visual design and scroll animation."
+        }
+      ],
+      "error": "HTTPStatusError: Server error '503 Service Unavailable' for url 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/503"
+    }
+  ]
+}
