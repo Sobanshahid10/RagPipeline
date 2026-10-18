@@ -7,6 +7,7 @@ import { useToast } from "@/context/ToastContext";
 import { 
   uploadDocument, 
   getDocuments, 
+  deleteDocument,
   DocumentItem 
 } from "@/lib/api";
 import { 
@@ -21,7 +22,7 @@ import {
   MessageSquare, 
   RefreshCw, 
   Loader2,
-  Sparkles,
+  Activity,
   Search,
   Filter,
   LayoutGrid,
@@ -29,7 +30,8 @@ import {
   Copy,
   Check,
   HardDrive,
-  Database
+  Database,
+  Trash2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { DocumentDrawer } from "@/components/DocumentDrawer";
@@ -49,6 +51,7 @@ export default function DocumentsPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,6 +119,27 @@ export default function DocumentsPage() {
       setTimeout(() => setCopiedId(null), 2000);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDeleteDoc = async (id: string, filename: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!token) return;
+    if (!window.confirm(`Are you sure you want to permanently delete "${filename}"? All embeddings and indexed chunks will be purged.`)) {
+      return;
+    }
+    try {
+      setDeletingDocId(id);
+      await deleteDocument(id, token);
+      showToast("success", "Document deleted", `"${filename}" was successfully removed.`);
+      setDocuments((prev) => prev.filter((d) => d.document_id !== id));
+      if (selectedDoc?.document_id === id) {
+        setSelectedDoc(null);
+      }
+    } catch (err: any) {
+      showToast("error", "Delete failed", err.message || "Could not delete document.");
+    } finally {
+      setDeletingDocId(null);
     }
   };
 
@@ -199,119 +223,62 @@ export default function DocumentsPage() {
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-start",
           justifyContent: "space-between",
-          marginBottom: "32px",
+          marginBottom: "28px",
           flexWrap: "wrap",
           gap: "16px",
         }}
       >
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-            <h1
-              className="brand-font"
-              style={{ fontSize: "28px", fontWeight: 800, letterSpacing: "-0.025em" }}
-            >
-              Document Library
-            </h1>
-            <span className="badge badge-accent">Enterprise Corpus</span>
-          </div>
-          <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-            Multitenant document catalog with vision layout parsing, semantic chunking, and knowledge graph ingestion.
+          <h1
+            className="brand-font"
+            style={{ fontSize: "26px", fontWeight: 700, letterSpacing: "-0.025em", marginBottom: "6px" }}
+          >
+            Document Library
+          </h1>
+          <p style={{ fontSize: "14px", color: "var(--text-secondary)", maxWidth: "600px" }}>
+            Multi-tenant document repository with vision layout parsing, semantic chunking, and knowledge graph ingestion.
           </p>
+
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              marginTop: "12px",
+              fontSize: "12.5px",
+              color: "var(--text-secondary)",
+              flexWrap: "wrap",
+            }}
+          >
+            <span><strong style={{ color: "#FFFFFF" }}>{documents.length}</strong> documents ({readyDocs} indexed)</span>
+            <span style={{ color: "var(--border)" }}>•</span>
+            <span><strong style={{ color: "#FFFFFF" }}>{totalPages.toLocaleString()}</strong> pages</span>
+            <span style={{ color: "var(--border)" }}>•</span>
+            <span><strong style={{ color: "#FFFFFF" }}>{totalChunks.toLocaleString()}</strong> indexed chunks</span>
+          </div>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="btn btn-primary"
-            style={{ fontSize: "13.5px", padding: "9px 18px" }}
+            style={{ fontSize: "13.5px", padding: "8px 16px" }}
           >
-            <UploadCloud size={16} />
+            <UploadCloud size={15} />
             <span>Upload Document</span>
           </button>
 
           <button
             onClick={fetchDocs}
             className="btn btn-secondary"
-            style={{ fontSize: "13px", padding: "9px 14px" }}
+            style={{ fontSize: "13px", padding: "8px 12px" }}
             title="Refresh document status"
+            aria-label="Refresh document status"
           >
             <RefreshCw size={14} />
           </button>
-        </div>
-      </div>
-
-      {/* ── Aggregate Stat Cards ─────────────────────────────────── */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: "16px",
-          marginBottom: "28px",
-        }}
-      >
-        <div className="card" style={{ padding: "20px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Total Documents
-            </span>
-            <FileText size={18} color="var(--accent-light)" />
-          </div>
-          <div style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", fontFamily: "'Outfit', sans-serif" }}>
-            {documents.length}
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--emerald-light)", marginTop: "4px" }}>
-            {readyDocs} ready for retrieval
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "20px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Total Pages
-            </span>
-            <Layers size={18} color="var(--cyan-light)" />
-          </div>
-          <div style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", fontFamily: "'Outfit', sans-serif" }}>
-            {totalPages.toLocaleString()}
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
-            Visual layout & bounding-boxes
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "20px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Indexed Chunks
-            </span>
-            <Database size={18} color="#F59E0B" />
-          </div>
-          <div style={{ fontSize: "28px", fontWeight: 800, color: "#FFFFFF", fontFamily: "'Outfit', sans-serif" }}>
-            {totalChunks.toLocaleString()}
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "4px" }}>
-            Dense vectors & BM25 indices
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: "20px 22px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "10px" }}>
-            <span style={{ fontSize: "12px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-              Ingestion Status
-            </span>
-            <Sparkles size={18} color="var(--emerald-light)" />
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginTop: "4px" }}>
-            <span className="status-dot-active" />
-            <span style={{ fontSize: "18px", fontWeight: 700, color: "#FFFFFF" }}>
-              Online
-            </span>
-          </div>
-          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "8px" }}>
-            Celery async workers listening
-          </div>
         </div>
       </div>
 
@@ -326,16 +293,16 @@ export default function DocumentsPage() {
           padding: "36px 28px",
           textAlign: "center",
           border: isDragging
-            ? "2px dashed var(--accent-light)"
-            : "2px dashed rgba(255, 255, 255, 0.12)",
+            ? "2px dashed var(--foreground)"
+            : "1px dashed var(--border)",
           backgroundColor: isDragging
-            ? "rgba(99, 102, 241, 0.12)"
-            : "rgba(18, 20, 31, 0.4)",
-          boxShadow: isDragging ? "0 0 28px var(--accent-glow)" : "none",
-          borderRadius: "16px",
+            ? "var(--surface-raised)"
+            : "var(--surface)",
+          boxShadow: "none",
+          borderRadius: "8px",
           cursor: "pointer",
           marginBottom: "32px",
-          transition: "all 0.22s ease",
+          transition: "all 0.18s ease",
         }}
       >
         <input
@@ -348,11 +315,11 @@ export default function DocumentsPage() {
 
         <div
           style={{
-            width: "56px",
-            height: "56px",
-            borderRadius: "16px",
-            background: "rgba(99, 102, 241, 0.14)",
-            border: "1px solid rgba(99, 102, 241, 0.3)",
+            width: "48px",
+            height: "48px",
+            borderRadius: "8px",
+            background: "var(--surface-raised)",
+            border: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -360,13 +327,13 @@ export default function DocumentsPage() {
           }}
         >
           {isUploading ? (
-            <Loader2 size={28} color="var(--accent-light)" style={{ animation: "spin 1s linear infinite" }} />
+            <Loader2 size={22} style={{ color: "var(--foreground)", animation: "spin 1s linear infinite" }} />
           ) : (
-            <UploadCloud size={28} color="var(--accent-light)" />
+            <UploadCloud size={22} style={{ color: "var(--foreground)" }} />
           )}
         </div>
 
-        <h3 style={{ fontSize: "17px", fontWeight: 700, marginBottom: "6px", color: "#FFFFFF" }}>
+        <h3 style={{ fontSize: "16px", fontWeight: 600, marginBottom: "6px", color: "var(--foreground)" }}>
           {isUploading
             ? `Uploading "${uploadFileName}" & generating SHA-256 digest...`
             : "Drag & drop files to ingest, or click to browse"}
@@ -530,18 +497,18 @@ export default function DocumentsPage() {
               <div style={{ display: "flex", alignItems: "center", gap: "16px", minWidth: 0, flex: 1 }}>
                 <div
                   style={{
-                    width: "44px",
-                    height: "44px",
-                    borderRadius: "12px",
-                    backgroundColor: "rgba(99, 102, 241, 0.12)",
-                    border: "1px solid rgba(99, 102, 241, 0.28)",
+                    width: "40px",
+                    height: "40px",
+                    borderRadius: "6px",
+                    backgroundColor: "var(--surface-raised)",
+                    border: "1px solid var(--border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     flexShrink: 0,
                   }}
                 >
-                  <FileText size={22} color="var(--accent-light)" />
+                  <FileText size={18} color="var(--text-secondary)" />
                 </div>
 
                 <div style={{ minWidth: 0 }}>
@@ -614,6 +581,26 @@ export default function DocumentsPage() {
                     <MessageSquare size={14} />
                     <span>Ask RAG</span>
                   </button>
+
+                  <button
+                    onClick={(e) => handleDeleteDoc(doc.document_id, doc.filename, e)}
+                    disabled={deletingDocId === doc.document_id}
+                    className="btn btn-ghost"
+                    style={{
+                      padding: "8px 10px",
+                      fontSize: "12.5px",
+                      color: "var(--rose-light)",
+                      borderRadius: "6px",
+                    }}
+                    title={`Delete "${doc.filename}"`}
+                    aria-label={`Delete ${doc.filename}`}
+                  >
+                    {deletingDocId === doc.document_id ? (
+                      <Loader2 size={14} style={{ animation: "spin 1s linear infinite" }} />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -646,17 +633,17 @@ export default function DocumentsPage() {
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "14px" }}>
                   <div
                     style={{
-                      width: "42px",
-                      height: "42px",
-                      borderRadius: "10px",
-                      backgroundColor: "rgba(99, 102, 241, 0.12)",
-                      border: "1px solid rgba(99, 102, 241, 0.28)",
+                      width: "36px",
+                      height: "36px",
+                      borderRadius: "6px",
+                      backgroundColor: "var(--surface-raised)",
+                      border: "1px solid var(--border)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
-                    <FileText size={20} color="var(--accent-light)" />
+                    <FileText size={18} color="var(--text-secondary)" />
                   </div>
                   {getStatusBadge(doc.status)}
                 </div>
@@ -691,17 +678,34 @@ export default function DocumentsPage() {
                   borderTop: "1px solid rgba(255, 255, 255, 0.06)",
                 }}
               >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(`/documents/${doc.document_id}`);
-                  }}
-                  className="btn btn-ghost"
-                  style={{ padding: "6px 8px", fontSize: "12px" }}
-                >
-                  <Eye size={13} />
-                  <span>Inspect</span>
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/documents/${doc.document_id}`);
+                    }}
+                    className="btn btn-ghost"
+                    style={{ padding: "6px 8px", fontSize: "12px" }}
+                  >
+                    <Eye size={13} />
+                    <span>Inspect</span>
+                  </button>
+
+                  <button
+                    onClick={(e) => handleDeleteDoc(doc.document_id, doc.filename, e)}
+                    disabled={deletingDocId === doc.document_id}
+                    className="btn btn-ghost"
+                    style={{ padding: "6px 8px", fontSize: "12px", color: "var(--rose-light)" }}
+                    title={`Delete "${doc.filename}"`}
+                    aria-label={`Delete ${doc.filename}`}
+                  >
+                    {deletingDocId === doc.document_id ? (
+                      <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                  </button>
+                </div>
 
                 <button
                   onClick={(e) => {

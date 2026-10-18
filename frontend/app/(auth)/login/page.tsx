@@ -5,21 +5,22 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { login, register } from "@/lib/api";
-import { 
-  Sparkles, 
-  ArrowRight, 
-  Lock, 
-  Mail, 
-  Building, 
-  AlertCircle, 
-  Loader2, 
-  ShieldCheck, 
-  Zap, 
-  Database, 
-  Cpu, 
-  Eye, 
+import {
+  ArrowRight,
+  Lock,
+  Mail,
+  Building,
+  AlertCircle,
+  Loader2,
+  ShieldCheck,
+  Activity,
+  Database,
+  Cpu,
+  Eye,
   EyeOff,
-  CheckCircle2
+  CheckCircle2,
+  Layers,
+  KeyRound
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -80,6 +81,7 @@ export default function LoginPage() {
       style={{
         minHeight: "100vh",
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
         backgroundColor: "var(--bg)",
@@ -88,34 +90,6 @@ export default function LoginPage() {
         overflow: "hidden",
       }}
     >
-      {/* Background Ambient Glows */}
-      <div
-        style={{
-          position: "absolute",
-          top: "15%",
-          left: "20%",
-          width: "550px",
-          height: "550px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(8, 9, 14, 0) 70%)",
-          filter: "blur(80px)",
-          pointerEvents: "none",
-        }}
-      />
-      <div
-        style={{
-          position: "absolute",
-          bottom: "10%",
-          right: "20%",
-          width: "500px",
-          height: "500px",
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(139, 92, 246, 0.1) 0%, rgba(8, 9, 14, 0) 70%)",
-          filter: "blur(80px)",
-          pointerEvents: "none",
-        }}
-      />
-
       {/* Main Dual-Card Container */}
       <div
         style={{
@@ -143,120 +117,53 @@ export default function LoginPage() {
         >
           {/* Brand Heading */}
           <div>
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "6px 14px",
-                borderRadius: "20px",
-                backgroundColor: "rgba(99, 102, 241, 0.12)",
-                border: "1px solid rgba(99, 102, 241, 0.3)",
-                color: "var(--accent-light)",
-                fontSize: "12px",
-                fontWeight: 600,
-                letterSpacing: "0.04em",
-                marginBottom: "16px",
-              }}
-            >
-              <Sparkles size={14} />
-              <span>Next-Gen Enterprise RAG Platform</span>
-            </div>
-
             <h1
               className="brand-font"
               style={{
-                fontSize: "36px",
-                fontWeight: 800,
+                fontSize: "34px",
+                fontWeight: 700,
                 letterSpacing: "-0.03em",
-                lineHeight: 1.15,
+                lineHeight: 1.2,
                 marginBottom: "14px",
+                color: "#FFFFFF",
               }}
             >
-              Layout-Aware Intelligence with Verifiable Citations
+              Layout-Aware RAG with Verifiable Citations
             </h1>
 
-            <p style={{ fontSize: "15px", color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              Production multi-tenant RAG combining PostgreSQL pgvector, recursive CTE GraphRAG, 
-              and sub-second SSE streaming with real-time bounding box inspection.
+            <p style={{ fontSize: "14.5px", color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: "460px" }}>
+              Multi-tenant retrieval platform combining PostgreSQL pgvector, recursive GraphRAG traversal, and layout-grounded passage citations.
             </p>
           </div>
 
-          {/* Core Architecture Feature Badges */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-            <div
-              className="card"
-              style={{
-                padding: "16px",
-                backgroundColor: "rgba(18, 20, 31, 0.5)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--accent-light)" }}>
-                <ShieldCheck size={18} />
-                <span style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF" }}>Strict RLS Isolation</span>
-              </div>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                Cryptographic JWT tenant RLS enforced at PostgreSQL session level.
+          {/* Technical Specifications */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "14px",
+              paddingTop: "14px",
+              borderTop: "1px solid var(--border)",
+            }}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Row-Level Security (RLS) Isolation</span>
+              <span style={{ fontSize: "12.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Cryptographic JWT claims configure PostgreSQL session variables for tenant data partitioning.
               </span>
             </div>
 
-            <div
-              className="card"
-              style={{
-                padding: "16px",
-                backgroundColor: "rgba(18, 20, 31, 0.5)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--cyan-light)" }}>
-                <Database size={18} />
-                <span style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF" }}>Tri-Hybrid Fusion</span>
-              </div>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                HNSW cosine similarity + BM25 tsvector + GraphRAG CTE traversal.
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Tri-Hybrid Retrieval Engine</span>
+              <span style={{ fontSize: "12.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                HNSW cosine similarity, full-text tsvector search, and recursive knowledge graph traversal fused via rank fusion.
               </span>
             </div>
 
-            <div
-              className="card"
-              style={{
-                padding: "16px",
-                backgroundColor: "rgba(18, 20, 31, 0.5)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "var(--emerald-light)" }}>
-                <Zap size={18} />
-                <span style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF" }}>Sub-second TTFT</span>
-              </div>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                Parallel retrieval with Redis semantic cache (&lt;15ms hits).
-              </span>
-            </div>
-
-            <div
-              className="card"
-              style={{
-                padding: "16px",
-                backgroundColor: "rgba(18, 20, 31, 0.5)",
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#F59E0B" }}>
-                <Cpu size={18} />
-                <span style={{ fontSize: "13px", fontWeight: 700, color: "#FFFFFF" }}>Vision Grounding</span>
-              </div>
-              <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-                Direct jump-to-page citation highlighting in original PDF view.
+            <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+              <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Vision Grounding &amp; Provenance</span>
+              <span style={{ fontSize: "12.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>
+                Exact document bounding boxes and page spans linked directly to original PDF rendering viewports.
               </span>
             </div>
           </div>
@@ -270,8 +177,8 @@ export default function LoginPage() {
           className="glass-panel"
           style={{
             padding: "36px 32px",
-            borderRadius: "18px",
-            boxShadow: "0 24px 60px -12px rgba(0, 0, 0, 0.75), 0 0 24px -2px var(--accent-glow)",
+            borderRadius: "8px",
+            boxShadow: "0 16px 40px rgba(0, 0, 0, 0.4)",
           }}
         >
           {/* Header */}
@@ -347,6 +254,8 @@ export default function LoginPage() {
           {/* Error Alert */}
           {error && (
             <div
+              role="alert"
+              aria-live="polite"
               style={{
                 display: "flex",
                 alignItems: "flex-start",
@@ -371,6 +280,7 @@ export default function LoginPage() {
             {isRegister && (
               <div>
                 <label
+                  htmlFor="tenant-name"
                   style={{
                     display: "block",
                     fontSize: "11.5px",
@@ -390,6 +300,7 @@ export default function LoginPage() {
                     style={{ position: "absolute", left: "14px", top: "14px" }}
                   />
                   <input
+                    id="tenant-name"
                     type="text"
                     required
                     placeholder="Acme Corporation"
@@ -404,6 +315,7 @@ export default function LoginPage() {
 
             <div>
               <label
+                htmlFor="work-email"
                 style={{
                   display: "block",
                   fontSize: "11.5px",
@@ -423,8 +335,10 @@ export default function LoginPage() {
                   style={{ position: "absolute", left: "14px", top: "14px" }}
                 />
                 <input
+                  id="work-email"
                   type="email"
                   required
+                  autoComplete="email"
                   placeholder="admin@acme.corp"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -436,6 +350,7 @@ export default function LoginPage() {
 
             <div>
               <label
+                htmlFor="login-password"
                 style={{
                   display: "block",
                   fontSize: "11.5px",
@@ -455,8 +370,10 @@ export default function LoginPage() {
                   style={{ position: "absolute", left: "14px", top: "14px" }}
                 />
                 <input
+                  id="login-password"
                   type={showPassword ? "text" : "password"}
                   required
+                  autoComplete={isRegister ? "new-password" : "current-password"}
                   placeholder="••••••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -466,6 +383,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   style={{
                     position: "absolute",
                     right: "14px",
@@ -506,6 +424,19 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Contextual Form Privacy & Legal Notice */}
+          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "14px", textAlign: "center", lineHeight: 1.5 }}>
+            By continuing, you agree to our{" "}
+            <a href="/terms" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>
+              Terms &amp; Conditions
+            </a>{" "}
+            and acknowledge our{" "}
+            <a href="/privacy" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>
+              Privacy Policy
+            </a>
+            . Passwords are salted and hashed using bcrypt.
+          </div>
+
           {/* Quick Demo Credentials Assistant */}
           <div
             style={{
@@ -533,12 +464,38 @@ export default function LoginPage() {
                 borderRadius: "6px",
               }}
             >
-              <Sparkles size={12} color="var(--accent-light)" />
+              <KeyRound size={12} style={{ color: "var(--text-muted)" }} />
               <span>Fill Demo Admin</span>
             </button>
           </div>
         </motion.div>
       </div>
+
+      {/* Login Screen Legal Footer */}
+      <footer
+        style={{
+          position: "relative",
+          zIndex: 10,
+          marginTop: "40px",
+          display: "flex",
+          flexWrap: "wrap",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "18px",
+          fontSize: "12.5px",
+          color: "var(--text-muted)",
+        }}
+      >
+        <span>&copy; {new Date().getFullYear()} Nexus RAG Platform</span>
+        <span>&bull;</span>
+        <a href="/privacy" style={{ color: "var(--text-secondary)" }}>Privacy Policy</a>
+        <span>&bull;</span>
+        <a href="/terms" style={{ color: "var(--text-secondary)" }}>Terms &amp; Conditions</a>
+        <span>&bull;</span>
+        <a href="/cookies" style={{ color: "var(--text-secondary)" }}>Cookie Policy</a>
+        <span>&bull;</span>
+        <a href="/refund" style={{ color: "var(--text-secondary)" }}>Refund Policy</a>
+      </footer>
     </div>
   );
 }

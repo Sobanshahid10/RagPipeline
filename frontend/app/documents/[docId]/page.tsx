@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
-import { getDocumentStatus, getDocumentFileUrl, DocumentItem } from "@/lib/api";
+import { getDocumentStatus, getDocumentFileUrl, deleteDocument, DocumentItem } from "@/lib/api";
 import { PDFViewer } from "@/components/PDFViewer";
 import { 
   ArrowLeft, 
@@ -17,7 +17,8 @@ import {
   AlertCircle,
   Copy,
   Check,
-  Download
+  Download,
+  Trash2
 } from "lucide-react";
 
 export default function DocumentDetailPage() {
@@ -29,6 +30,7 @@ export default function DocumentDetailPage() {
 
   const [document, setDocument] = useState<DocumentItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -57,6 +59,22 @@ export default function DocumentDetailPage() {
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!token || !docId || !document) return;
+    if (!window.confirm(`Are you sure you want to delete "${document.filename}"? This will permanently delete the file, its vector embeddings, and indexed chunks.`)) {
+      return;
+    }
+    try {
+      setIsDeleting(true);
+      await deleteDocument(docId, token);
+      showToast("success", "Document deleted", `"${document.filename}" was permanently removed.`);
+      router.push("/documents");
+    } catch (err: any) {
+      showToast("error", "Delete failed", err.message || "Could not delete document.");
+      setIsDeleting(false);
     }
   };
 
@@ -92,9 +110,9 @@ export default function DocumentDetailPage() {
         }}
       >
         <AlertCircle size={44} color="#F43F5E" style={{ margin: "0 auto 16px" }} />
-        <h2 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px", color: "#FFFFFF" }}>
+        <h1 style={{ fontSize: "20px", fontWeight: 700, marginBottom: "8px", color: "#FFFFFF" }}>
           Document Not Found
-        </h2>
+        </h1>
         <p style={{ fontSize: "14px", color: "var(--text-muted)", marginBottom: "28px", lineHeight: 1.5 }}>
           {error || "The requested document could not be retrieved from the server."}
         </p>
@@ -150,22 +168,23 @@ export default function DocumentDetailPage() {
           <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0 }}>
             <div
               style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "8px",
-                backgroundColor: "rgba(99, 102, 241, 0.14)",
+                width: "32px",
+                height: "32px",
+                borderRadius: "6px",
+                backgroundColor: "var(--surface-raised)",
+                border: "1px solid var(--border)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexShrink: 0,
               }}
             >
-              <FileText size={18} color="var(--accent-light)" />
+              <FileText size={16} color="var(--text-secondary)" />
             </div>
 
             <div style={{ minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <h2
+                <h1
                   style={{
                     fontSize: "15px",
                     fontWeight: 700,
@@ -176,7 +195,7 @@ export default function DocumentDetailPage() {
                   }}
                 >
                   {document.filename}
-                </h2>
+                </h1>
                 <button
                   onClick={handleCopyId}
                   title="Copy Document ID"
@@ -206,6 +225,29 @@ export default function DocumentDetailPage() {
 
         {/* Right Actions */}
         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            onClick={handleDelete}
+            disabled={isDeleting}
+            className="btn btn-ghost"
+            style={{
+              padding: "8px 14px",
+              fontSize: "13px",
+              color: "var(--rose-light)",
+              border: "1px solid var(--border)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+            }}
+            title={`Delete "${document.filename}"`}
+          >
+            {isDeleting ? (
+              <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+            ) : (
+              <Trash2 size={15} />
+            )}
+            <span>Delete PDF</span>
+          </button>
+
           <button
             onClick={() => router.push("/chat")}
             className="btn btn-primary"

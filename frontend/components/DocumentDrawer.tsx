@@ -4,18 +4,17 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { DocumentItem, getDocumentFileUrl } from "@/lib/api";
 import { useToast } from "@/context/ToastContext";
-import { 
-  X, 
-  FileText, 
-  MessageSquare, 
-  Eye, 
-  Download, 
-  Layers, 
-  Database, 
-  Check, 
-  Copy, 
-  Clock, 
-  Sparkles,
+import {
+  X,
+  FileText,
+  MessageSquare,
+  Eye,
+  Download,
+  Layers,
+  Database,
+  Check,
+  Copy,
+  Clock,
   GitCommit,
   CheckCircle2,
   Share2
@@ -103,25 +102,25 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
             <div style={{ display: "flex", alignItems: "center", gap: "12px", minWidth: 0 }}>
               <div
                 style={{
-                  width: "40px",
-                  height: "40px",
-                  borderRadius: "10px",
-                  backgroundColor: "rgba(99, 102, 241, 0.14)",
-                  border: "1px solid rgba(99, 102, 241, 0.3)",
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "6px",
+                  backgroundColor: "var(--surface-raised)",
+                  border: "1px solid var(--border)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
                 }}
               >
-                <FileText size={20} color="var(--accent-light)" />
+                <FileText size={18} color="var(--text-secondary)" />
               </div>
               <div style={{ minWidth: 0 }}>
                 <h3
                   style={{
-                    fontSize: "16px",
-                    fontWeight: 700,
-                    color: "#FFFFFF",
+                    fontSize: "15px",
+                    fontWeight: 600,
+                    color: "var(--foreground)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -146,7 +145,7 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
               display: "flex",
               borderBottom: "1px solid var(--border)",
               padding: "0 20px",
-              backgroundColor: "rgba(11, 13, 20, 0.6)",
+              backgroundColor: "transparent",
             }}
           >
             {[
@@ -161,8 +160,8 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
                   padding: "12px 16px",
                   background: "transparent",
                   border: "none",
-                  borderBottom: activeTab === tab.id ? "2px solid var(--accent-light)" : "2px solid transparent",
-                  color: activeTab === tab.id ? "#FFFFFF" : "var(--text-muted)",
+                  borderBottom: activeTab === tab.id ? "2px solid var(--foreground)" : "2px solid transparent",
+                  color: activeTab === tab.id ? "var(--foreground)" : "var(--text-muted)",
                   fontSize: "13px",
                   fontWeight: activeTab === tab.id ? 600 : 500,
                   cursor: "pointer",
@@ -191,7 +190,7 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
                     Document UUID
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <code style={{ fontSize: "13px", color: "var(--accent-light)" }}>{document.document_id}</code>
+                    <code style={{ fontSize: "13px", color: "var(--foreground)" }}>{document.document_id}</code>
                     <button
                       onClick={handleCopyId}
                       className="btn btn-ghost"
@@ -205,20 +204,20 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
 
                 {/* Key Metrics */}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-                    <span style={{ fontSize: "11.5px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Total Pages</span>
-                    <div style={{ fontSize: "22px", fontWeight: 800, color: "#FFFFFF", marginTop: "4px" }}>{document.total_pages}</div>
+                  <div style={{ padding: "14px", borderRadius: "6px", backgroundColor: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Total Pages</span>
+                    <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--foreground)", marginTop: "4px" }}>{document.total_pages}</div>
                   </div>
-                  <div style={{ padding: "14px", borderRadius: "10px", backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid var(--border)" }}>
-                    <span style={{ fontSize: "11.5px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 700 }}>Indexed Chunks</span>
-                    <div style={{ fontSize: "22px", fontWeight: 800, color: "#FFFFFF", marginTop: "4px" }}>{document.chunk_count}</div>
+                  <div style={{ padding: "14px", borderRadius: "6px", backgroundColor: "var(--surface-raised)", border: "1px solid var(--border)" }}>
+                    <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase", fontWeight: 600 }}>Indexed Chunks</span>
+                    <div style={{ fontSize: "20px", fontWeight: 700, color: "var(--foreground)", marginTop: "4px" }}>{document.chunk_count}</div>
                   </div>
                 </div>
 
                 {/* Ingestion Pipeline Badges */}
-                <div style={{ padding: "16px", borderRadius: "10px", backgroundColor: "rgba(16, 185, 129, 0.08)", border: "1px solid rgba(16, 185, 129, 0.25)" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#34D399", fontWeight: 700, fontSize: "13px", marginBottom: "4px" }}>
-                    <CheckCircle2 size={16} />
+                <div style={{ padding: "14px", borderRadius: "6px", backgroundColor: "rgba(16, 185, 129, 0.05)", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", color: "#34D399", fontWeight: 600, fontSize: "13px", marginBottom: "4px" }}>
+                    <CheckCircle2 size={15} />
                     <span>Vision Layout Indexing Complete</span>
                   </div>
                   <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
@@ -235,15 +234,15 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
                     key={idx}
                     style={{
                       padding: "14px",
-                      borderRadius: "10px",
-                      backgroundColor: "rgba(255, 255, 255, 0.03)",
+                      borderRadius: "6px",
+                      backgroundColor: "var(--surface-raised)",
                       border: "1px solid var(--border)",
                       fontSize: "12.5px",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
-                      <span style={{ fontWeight: 700, color: "#FFFFFF" }}>Chunk #{idx + 1}</span>
-                      <span className="badge badge-accent">Page {Math.floor(idx / 2) + 1}</span>
+                      <span style={{ fontWeight: 600, color: "var(--foreground)" }}>Chunk #{idx + 1}</span>
+                      <span className="badge">Page {Math.floor(idx / 2) + 1}</span>
                     </div>
                     <p style={{ color: "var(--text-secondary)", lineHeight: 1.45, fontStyle: "italic" }}>
                       &ldquo;Document section covering key operational specifications, architectural layout details, and compliance requirements...&rdquo;
@@ -259,7 +258,7 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
             )}
 
             {activeTab === "graph" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                 <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                   Recursive Common Table Expression (CTE) Entity Graph Triples:
                 </span>
@@ -268,8 +267,8 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
                     key={i}
                     style={{
                       padding: "12px 14px",
-                      borderRadius: "10px",
-                      backgroundColor: "rgba(255, 255, 255, 0.03)",
+                      borderRadius: "6px",
+                      backgroundColor: "var(--surface-raised)",
                       border: "1px solid var(--border)",
                       display: "flex",
                       alignItems: "center",
@@ -278,9 +277,9 @@ export const DocumentDrawer: React.FC<DocumentDrawerProps> = ({ document, onClos
                       fontSize: "12px",
                     }}
                   >
-                    <span style={{ fontWeight: 600, color: "var(--accent-light)" }}>{triple.subject}</span>
+                    <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{triple.subject}</span>
                     <span style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase" }}>{triple.predicate}</span>
-                    <span style={{ fontWeight: 600, color: "var(--cyan-light)" }}>{triple.object}</span>
+                    <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{triple.object}</span>
                   </div>
                 ))}
               </div>

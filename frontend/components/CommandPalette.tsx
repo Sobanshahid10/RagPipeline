@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  Search, 
-  MessageSquare, 
-  FileText, 
-  BarChart3, 
-  UploadCloud, 
-  Settings, 
-  ExternalLink, 
-  Sparkles, 
-  Zap,
+import {
+  Search,
+  MessageSquare,
+  FileText,
+  BarChart3,
+  UploadCloud,
+  Settings,
+  ExternalLink,
+  Plus,
+  Activity,
   Layers,
   ArrowRight
 } from "lucide-react";
@@ -75,7 +75,7 @@ export const CommandPalette: React.FC<{
       id: "new-chat",
       title: "Start New Chat Conversation",
       category: "Actions",
-      icon: Sparkles,
+      icon: Plus,
       action: () => {
         onNewChat?.();
         router.push("/chat");
@@ -119,7 +119,7 @@ export const CommandPalette: React.FC<{
       id: "jaeger",
       title: "Jaeger Distributed Traces",
       category: "Developer",
-      icon: Zap,
+      icon: Activity,
       action: () => {
         window.open("http://localhost:16686", "_blank");
         onClose();
@@ -186,10 +186,10 @@ export const CommandPalette: React.FC<{
             style={{
               width: "100%",
               maxWidth: "580px",
-              backgroundColor: "rgba(16, 18, 29, 0.95)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              borderRadius: "16px",
-              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.8), 0 0 32px var(--accent-glow)",
+              backgroundColor: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.7)",
               overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -204,7 +204,7 @@ export const CommandPalette: React.FC<{
                 borderBottom: "1px solid var(--border)",
               }}
             >
-              <Search size={18} color="var(--accent-light)" />
+              <Search size={18} color="var(--text-muted)" />
               <input
                 ref={inputRef}
                 type="text"
@@ -219,8 +219,8 @@ export const CommandPalette: React.FC<{
                   flex: 1,
                   background: "transparent",
                   border: "none",
-                  color: "#FFFFFF",
-                  fontSize: "15px",
+                  color: "var(--foreground)",
+                  fontSize: "14px",
                   outline: "none",
                   fontFamily: "inherit",
                 }}
@@ -230,8 +230,8 @@ export const CommandPalette: React.FC<{
                   fontSize: "11px",
                   color: "var(--text-muted)",
                   padding: "3px 6px",
-                  borderRadius: "5px",
-                  backgroundColor: "rgba(255, 255, 255, 0.06)",
+                  borderRadius: "4px",
+                  backgroundColor: "var(--surface-raised)",
                   border: "1px solid var(--border)",
                 }}
               >
@@ -265,16 +265,16 @@ export const CommandPalette: React.FC<{
                         alignItems: "center",
                         justifyContent: "space-between",
                         padding: "10px 14px",
-                        borderRadius: "10px",
-                        backgroundColor: isSelected ? "rgba(99, 102, 241, 0.16)" : "transparent",
-                        border: isSelected ? "1px solid rgba(99, 102, 241, 0.35)" : "1px solid transparent",
+                        borderRadius: "6px",
+                        backgroundColor: isSelected ? "var(--surface-raised)" : "transparent",
+                        border: isSelected ? "1px solid var(--border)" : "1px solid transparent",
                         cursor: "pointer",
                         transition: "all 0.12s ease",
                       }}
                     >
                       <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <Icon size={17} color={isSelected ? "var(--accent-light)" : "var(--text-muted)"} />
-                        <span style={{ fontSize: "13.5px", fontWeight: isSelected ? 600 : 500, color: isSelected ? "#FFFFFF" : "var(--text)" }}>
+                        <Icon size={16} color={isSelected ? "var(--foreground)" : "var(--text-muted)"} />
+                        <span style={{ fontSize: "13.5px", fontWeight: isSelected ? 600 : 400, color: isSelected ? "var(--foreground)" : "var(--text-secondary)" }}>
                           {item.title}
                         </span>
                       </div>

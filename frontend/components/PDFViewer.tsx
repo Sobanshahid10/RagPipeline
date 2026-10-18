@@ -15,7 +15,6 @@ import {
   Bookmark,
   Download,
   Layers,
-  Sparkles,
   ExternalLink
 } from "lucide-react";
 
@@ -137,7 +136,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
         height: "100%",
         width: "100%",
         backgroundColor: "#0B0D14",
-        borderRadius: "14px",
+        borderRadius: "6px",
         overflow: "hidden",
         border: "1px solid var(--border)",
         position: "relative",
@@ -269,18 +268,18 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
       {pageHighlights.length > 0 && (
         <div
           style={{
-            backgroundColor: "rgba(99, 102, 241, 0.12)",
-            borderBottom: "1px solid rgba(99, 102, 241, 0.28)",
+            backgroundColor: "var(--surface-raised)",
+            borderBottom: "1px solid var(--border)",
             padding: "8px 16px",
             fontSize: "12px",
-            color: "var(--accent-light)",
+            color: "var(--foreground)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Bookmark size={14} />
+            <Bookmark size={14} style={{ color: "var(--text-muted)" }} />
             <span style={{ fontWeight: 600 }}>
               {pageHighlights.length} verifiable citation {pageHighlights.length > 1 ? "overlays" : "overlay"} on page {pageNumber}
             </span>
@@ -457,10 +456,10 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
                       left: coords.left,
                       width: coords.width,
                       height: coords.height,
-                      boxShadow: isActive
-                        ? "0 0 20px 4px rgba(99, 102, 241, 0.95)"
-                        : "0 0 10px rgba(99, 102, 241, 0.55)",
-                      borderColor: isActive ? "#FFFFFF" : "rgba(129, 140, 248, 0.9)",
+                      backgroundColor: isActive ? "rgba(245, 158, 11, 0.25)" : "rgba(245, 158, 11, 0.15)",
+                      border: isActive ? "2px solid #F59E0B" : "1.5px solid rgba(245, 158, 11, 0.6)",
+                      borderRadius: "2px",
+                      boxShadow: "none",
                     }}
                     title={hl.excerpt || `Cited chunk on page ${hl.page_number}`}
                   />

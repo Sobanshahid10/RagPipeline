@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
+import { DEFAULT_MODEL, isAvailableModel, MODEL_OPTIONS } from "@/lib/models";
 import { 
   X, 
   Settings, 
@@ -25,14 +26,25 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<"models" | "retrieval" | "tenant">("models");
-  const [llmProvider, setLlmProvider] = useState("groq");
-  const [llmModel, setLlmModel] = useState("gpt-oss-120b");
+  const [llmProvider, setLlmProvider] = useState("gemini");
+  const [llmModel, setLlmModel] = useState<string>(DEFAULT_MODEL);
   const [topK, setTopK] = useState(5);
   const [hnswEf, setHnswEf] = useState(100);
   const [enableReranker, setEnableReranker] = useState(true);
   const [enableCache, setEnableCache] = useState(true);
-  const [groqKey, setGroqKey] = useState("••••••••••••••••••••••••");
-  const [geminiKey, setGeminiKey] = useState("••••••••••••••••••••••••");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem("rag_settings") || "{}");
+      if (typeof saved.llmModel === "string" && isAvailableModel(saved.llmModel)) {
+        setLlmModel(saved.llmModel);
+        setLlmProvider(MODEL_OPTIONS.find((model) => model.id === saved.llmModel)?.provider || "gemini");
+      }
+    } catch {
+      // Ignore settings from an older frontend version.
+    }
+  }, [isOpen]);
 
   const handleSave = () => {
     localStorage.setItem(
@@ -46,7 +58,8 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
         enableCache,
       })
     );
-    showToast("success", "Settings Saved", "Runtime retrieval and generation parameters updated.");
+    window.dispatchEvent(new Event("rag-model-change"));
+    showToast("success", "Answer model saved", "The selected model will be used for new chat answers.");
     onClose();
   };
 
@@ -77,10 +90,10 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
             style={{
               width: "100%",
               maxWidth: "680px",
-              backgroundColor: "rgba(16, 18, 29, 0.95)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              borderRadius: "18px",
-              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.8), 0 0 32px var(--accent-glow)",
+              backgroundColor: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "8px",
+              boxShadow: "0 24px 64px rgba(0, 0, 0, 0.7)",
               overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -98,16 +111,17 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
               <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                 <div
                   style={{
-                    width: "36px",
-                    height: "36px",
-                    borderRadius: "10px",
-                    backgroundColor: "rgba(99, 102, 241, 0.14)",
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "6px",
+                    backgroundColor: "var(--surface-raised)",
+                    border: "1px solid var(--border)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Settings size={18} color="var(--accent-light)" />
+                  <Settings size={16} color="var(--text-secondary)" />
                 </div>
                 <div>
                   <h3 style={{ fontSize: "17px", fontWeight: 700, color: "#FFFFFF" }}>
@@ -151,15 +165,15 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                       padding: "14px 16px",
                       background: "transparent",
                       border: "none",
-                      borderBottom: isActive ? "2px solid var(--accent-light)" : "2px solid transparent",
-                      color: isActive ? "#FFFFFF" : "var(--text-muted)",
+                      borderBottom: isActive ? "2px solid var(--foreground)" : "2px solid transparent",
+                      color: isActive ? "var(--foreground)" : "var(--text-muted)",
                       fontWeight: isActive ? 600 : 500,
                       fontSize: "13px",
                       cursor: "pointer",
                       transition: "all 0.15s ease",
                     }}
                   >
-                    <Icon size={15} color={isActive ? "var(--accent-light)" : "var(--text-muted)"} />
+                    <Icon size={15} color={isActive ? "var(--foreground)" : "var(--text-muted)"} />
                     <span>{tab.label}</span>
                   </button>
                 );
@@ -171,32 +185,32 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
               {activeTab === "models" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                   <div>
-                    <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: "8px", textTransform: "uppercase" }}>
+                    <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: "8px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                       Primary Inference Provider
                     </label>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" }}>
                       {[
-                        { id: "groq", name: "Groq LPU (GPT-OSS 120B)", speed: "<300ms TTFT", desc: "Ultra-fast low-latency streaming" },
-                        { id: "gemini", name: "Google Gemini 2.0 Flash", speed: "Native Multimodal", desc: "Large context window reasoning" },
+                        { id: "gemini", name: "Google Gemini", speed: "5 models", desc: "Choose from current Flash text models" },
+                        { id: "groq", name: "Groq", speed: "2 models", desc: "GPT-OSS 120B and 20B" },
                       ].map((prov) => (
                         <div
                           key={prov.id}
                           onClick={() => {
                             setLlmProvider(prov.id);
-                            setLlmModel(prov.id === "groq" ? "gpt-oss-120b" : "gemini-2.0-flash");
+                            setLlmModel(prov.id === "groq" ? "openai/gpt-oss-120b" : DEFAULT_MODEL);
                           }}
                           style={{
                             padding: "14px",
-                            borderRadius: "10px",
-                            backgroundColor: llmProvider === prov.id ? "rgba(99, 102, 241, 0.16)" : "rgba(255, 255, 255, 0.03)",
-                            border: llmProvider === prov.id ? "1.5px solid var(--accent-light)" : "1px solid var(--border)",
+                            borderRadius: "6px",
+                            backgroundColor: llmProvider === prov.id ? "var(--surface-raised)" : "transparent",
+                            border: llmProvider === prov.id ? "1px solid var(--foreground)" : "1px solid var(--border)",
                             cursor: "pointer",
                             transition: "all 0.15s ease",
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                            <span style={{ fontWeight: 700, color: "#FFFFFF", fontSize: "13px" }}>{prov.name}</span>
-                            <span className="badge badge-accent" style={{ fontSize: "10px" }}>{prov.speed}</span>
+                            <span style={{ fontWeight: 600, color: "var(--foreground)", fontSize: "13px" }}>{prov.name}</span>
+                            <span className="badge" style={{ fontSize: "10px" }}>{prov.speed}</span>
                           </div>
                           <span style={{ fontSize: "11.5px", color: "var(--text-muted)" }}>{prov.desc}</span>
                         </div>
@@ -213,9 +227,9 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                       onChange={(e) => setLlmModel(e.target.value)}
                       className="input-field"
                     >
-                      <option value="gpt-oss-120b">gpt-oss-120b (Production 120B Agentic)</option>
-                      <option value="gpt-oss-20b">gpt-oss-20b (Ultra-Fast 20B Lightweight)</option>
-                      <option value="gemini-2.0-flash">gemini-2.0-flash (Google Multimodal Flash)</option>
+                      {MODEL_OPTIONS.filter((model) => model.provider === llmProvider).map((model) => (
+                        <option key={model.id} value={model.id}>{model.label}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -225,10 +239,10 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                 <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>
+                      <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                         Top-K Context Chunks
                       </label>
-                      <span style={{ fontWeight: 700, color: "var(--accent-light)", fontSize: "13px" }}>{topK} chunks</span>
+                      <span style={{ fontWeight: 600, color: "var(--foreground)", fontSize: "13px" }}>{topK} chunks</span>
                     </div>
                     <input
                       type="range"
@@ -236,7 +250,7 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                       max={20}
                       value={topK}
                       onChange={(e) => setTopK(parseInt(e.target.value))}
-                      style={{ width: "100%", accentColor: "var(--accent)" }}
+                      style={{ width: "100%", accentColor: "var(--foreground)" }}
                     />
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
                       <span>3 (Precise)</span>
@@ -247,10 +261,10 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
 
                   <div>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                      <label style={{ fontSize: "12px", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>
+                      <label style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
                         HNSW ef_search Parameter
                       </label>
-                      <span style={{ fontWeight: 700, color: "var(--accent-light)", fontSize: "13px" }}>{hnswEf}</span>
+                      <span style={{ fontWeight: 600, color: "var(--foreground)", fontSize: "13px" }}>{hnswEf}</span>
                     </div>
                     <input
                       type="range"
@@ -259,7 +273,7 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                       step={20}
                       value={hnswEf}
                       onChange={(e) => setHnswEf(parseInt(e.target.value))}
-                      style={{ width: "100%", accentColor: "var(--accent)" }}
+                      style={{ width: "100%", accentColor: "var(--foreground)" }}
                     />
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
                       <span>40 (Speed)</span>
@@ -271,27 +285,27 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px", paddingTop: "8px", borderTop: "1px solid var(--border)" }}>
                     <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                       <div>
-                        <div style={{ fontSize: "13.5px", fontWeight: 600, color: "#FFFFFF" }}>ONNX Cross-Encoder Reranker</div>
+                        <div style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--foreground)" }}>ONNX Cross-Encoder Reranker</div>
                         <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Reorders fused vector and BM25 results with deep cross-attention</div>
                       </div>
                       <input
                         type="checkbox"
                         checked={enableReranker}
                         onChange={(e) => setEnableReranker(e.target.checked)}
-                        style={{ width: "18px", height: "18px", accentColor: "var(--accent)" }}
+                        style={{ width: "18px", height: "18px", accentColor: "var(--foreground)" }}
                       />
                     </label>
 
                     <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
                       <div>
-                        <div style={{ fontSize: "13.5px", fontWeight: 600, color: "#FFFFFF" }}>Redis Semantic Vector Cache</div>
+                        <div style={{ fontSize: "13.5px", fontWeight: 600, color: "var(--foreground)" }}>Redis Semantic Vector Cache</div>
                         <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>Sub-15ms instant responses for semantically duplicate user questions</div>
                       </div>
                       <input
                         type="checkbox"
                         checked={enableCache}
                         onChange={(e) => setEnableCache(e.target.checked)}
-                        style={{ width: "18px", height: "18px", accentColor: "var(--accent)" }}
+                        style={{ width: "18px", height: "18px", accentColor: "var(--foreground)" }}
                       />
                     </label>
                   </div>
@@ -303,15 +317,15 @@ export const SettingsModal: React.FC<{ isOpen: boolean; onClose: () => void }> =
                   <div
                     style={{
                       padding: "16px",
-                      borderRadius: "10px",
-                      backgroundColor: "rgba(255, 255, 255, 0.03)",
+                      borderRadius: "6px",
+                      backgroundColor: "var(--surface-raised)",
                       border: "1px solid var(--border)",
                     }}
                   >
-                    <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", marginBottom: "4px" }}>
+                    <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", marginBottom: "4px" }}>
                       Tenant Identifier
                     </div>
-                    <code style={{ fontSize: "13px", color: "var(--accent-light)" }}>
+                    <code style={{ fontSize: "13px", color: "var(--foreground)" }}>
                       {user?.tenant_id || "76d4016f-ca64-4898-8bcf-3a4a0da2d7ab"}
                     </code>
                   </div>

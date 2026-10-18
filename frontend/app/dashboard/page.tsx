@@ -78,8 +78,8 @@ interface SystemHealth {
 }
 
 const routeColors: Record<string, string> = {
-  FACTUAL_VECTOR: "#6366F1",
-  MULTI_HOP_GRAPH: "#A855F7",
+  FACTUAL_VECTOR: "var(--foreground)",
+  MULTI_HOP_GRAPH: "var(--text-secondary)",
   ANALYTICAL_SQL: "#F59E0B",
   GREETING_DIRECT: "#10B981",
   CACHE: "#06B6D4",
@@ -477,7 +477,7 @@ export default function DashboardPage() {
                     width: `${Math.min(((stats?.p95_ttft_ms ?? 0) / maxLatency) * 100, 100)}%`,
                     height: "100%",
                     borderRadius: "5px",
-                    background: "#8B5CF6",
+                    background: "var(--text-secondary)",
                     transition: "width 0.6s ease",
                   }}
                 />

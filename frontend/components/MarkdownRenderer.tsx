@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Copy, Check, Terminal } from "lucide-react";
+import { Copy, Check, Terminal, ExternalLink } from "lucide-react";
 
 interface MarkdownRendererProps {
   content: string;
@@ -83,11 +83,11 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
           <blockquote
             key={`quote-${i}`}
             style={{
-              borderLeft: "3px solid var(--accent)",
+              borderLeft: "2px solid var(--border)",
               padding: "8px 14px",
               margin: "12px 0",
-              background: "rgba(99, 102, 241, 0.08)",
-              borderRadius: "0 8px 8px 0",
+              background: "var(--surface-raised)",
+              borderRadius: "0 4px 4px 0",
               color: "var(--text-secondary)",
               fontStyle: "italic",
             }}
@@ -161,15 +161,66 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
   return <div className="markdown-body">{renderBlocks()}</div>;
 };
 
-// ── Inline Markdown Parser (Bold, Italic, Code, Links) ──────────────
+// ── Helper to sanitize link hrefs ────────────────────────────────────
+function sanitizeHref(url: string): string {
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed) || trimmed.startsWith("/")) {
+    return trimmed;
+  }
+  if (/^www\./i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+// ── Render Clickable Link Component ──────────────────────────────────
+function renderLinkElement(
+  key: string | number,
+  href: string,
+  displayText: string,
+  isRawUrl: boolean = false
+): React.ReactNode {
+  const safeHref = sanitizeHref(href);
+  const isExternal = /^https?:\/\//i.test(safeHref);
+
+  return (
+    <a
+      key={key}
+      href={safeHref}
+      target={isExternal ? "_blank" : undefined}
+      rel={isExternal ? "noopener noreferrer" : undefined}
+      className="markdown-link inline-link"
+      style={{
+        color: "var(--cyan-light, #7DD3FC)",
+        textDecoration: "underline",
+        textUnderlineOffset: "3px",
+        textDecorationColor: "rgba(125, 211, 252, 0.45)",
+        wordBreak: "break-all",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "3px",
+        transition: "color 0.15s ease, text-decoration-color 0.15s ease",
+      }}
+    >
+      <span>{displayText}</span>
+      {isExternal && (
+        <ExternalLink
+          size={11}
+          style={{ opacity: 0.75, flexShrink: 0, display: "inline-block", verticalAlign: "middle" }}
+        />
+      )}
+    </a>
+  );
+}
+
+// ── Inline Markdown Parser (Bold, Italic, Code, Links & Auto-URLs) ───
 function renderInline(text: string): React.ReactNode {
-  // Split tokens by code, bold, link
   const parts: React.ReactNode[] = [];
   let remaining = text;
   let keyIndex = 0;
 
   while (remaining.length > 0) {
-    // Inline code `code`
+    // 1. Inline code `code`
     const codeMatch = remaining.match(/^`([^`]+)`/);
     if (codeMatch) {
       parts.push(
@@ -192,7 +243,7 @@ function renderInline(text: string): React.ReactNode {
       continue;
     }
 
-    // Bold **text**
+    // 2. Bold **text**
     const boldMatch = remaining.match(/^\*\*([^*]+)\*\*/);
     if (boldMatch) {
       parts.push(
@@ -204,7 +255,7 @@ function renderInline(text: string): React.ReactNode {
       continue;
     }
 
-    // Italic *text*
+    // 3. Italic *text*
     const italicMatch = remaining.match(/^\*([^*]+)\*/);
     if (italicMatch) {
       parts.push(
@@ -216,30 +267,48 @@ function renderInline(text: string): React.ReactNode {
       continue;
     }
 
-    // Links [text](url)
+    // 4. Markdown links: [text](url)
     const linkMatch = remaining.match(/^\[([^\]]+)\]\(([^)]+)\)/);
     if (linkMatch) {
       parts.push(
-        <a
-          key={`link-${keyIndex++}`}
-          href={linkMatch[2]}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            color: "var(--accent-light)",
-            textDecoration: "underline",
-            textUnderlineOffset: "3px",
-          }}
-        >
-          {linkMatch[1]}
-        </a>
+        renderLinkElement(`link-${keyIndex++}`, linkMatch[2], linkMatch[1], false)
       );
       remaining = remaining.slice(linkMatch[0].length);
       continue;
     }
 
-    // Plain text up to next special char
-    const nextSpecial = remaining.search(/[`\*\[]/);
+    // 5. Bare/Raw URLs: https://... or http://... or www....
+    const rawUrlMatch = remaining.match(/^(https?:\/\/[^\s<>"{}|\\^`]+|www\.[^\s<>"{}|\\^`]+)/i);
+    if (rawUrlMatch) {
+      let matchedUrl = rawUrlMatch[0];
+      let trailing = "";
+
+      // Strip trailing punctuation not belonging to URL
+      while (/[.,;:!?)]$/.test(matchedUrl)) {
+        if (
+          matchedUrl.endsWith(")") &&
+          (matchedUrl.match(/\(/g) || []).length >= (matchedUrl.match(/\)/g) || []).length
+        ) {
+          break;
+        }
+        trailing = matchedUrl.slice(-1) + trailing;
+        matchedUrl = matchedUrl.slice(0, -1);
+      }
+
+      if (matchedUrl) {
+        parts.push(
+          renderLinkElement(`rawurl-${keyIndex++}`, matchedUrl, matchedUrl, true)
+        );
+        if (trailing) {
+          parts.push(trailing);
+        }
+        remaining = remaining.slice(rawUrlMatch[0].length);
+        continue;
+      }
+    }
+
+    // 6. Plain text up to next special token or URL
+    const nextSpecial = remaining.search(/[`\*\[]|https?:\/\/|www\./i);
     if (nextSpecial === -1) {
       parts.push(remaining);
       break;
@@ -247,7 +316,7 @@ function renderInline(text: string): React.ReactNode {
       parts.push(remaining.slice(0, nextSpecial));
       remaining = remaining.slice(nextSpecial);
     } else {
-      // First char didn't match a rule, push 1 char
+      // First char didn't match any rule, push single character and proceed
       parts.push(remaining[0]);
       remaining = remaining.slice(1);
     }
@@ -274,7 +343,7 @@ const CodeBlock: React.FC<{ code: string; language: string }> = ({ code, languag
     <div className="code-block-wrapper">
       <div className="code-block-header">
         <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Terminal size={13} color="var(--accent-light)" />
+          <Terminal size={13} color="var(--text-muted)" />
           <span>{language}</span>
         </div>
         <button

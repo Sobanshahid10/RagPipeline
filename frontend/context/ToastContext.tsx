@@ -44,7 +44,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       case "error":
         return <AlertCircle size={18} color="#F43F5E" />;
       case "info":
-        return <Info size={18} color="#6366F1" />;
+        return <Info size={18} color="var(--text-secondary)" />;
     }
   };
 
@@ -55,7 +55,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       case "error":
         return "rgba(244, 63, 94, 0.4)";
       case "info":
-        return "rgba(99, 102, 241, 0.4)";
+        return "var(--border)";
     }
   };
 
@@ -87,15 +87,14 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               transition={{ duration: 0.2 }}
               style={{
                 pointerEvents: "auto",
-                background: "rgba(18, 20, 31, 0.92)",
-                backdropFilter: "blur(16px)",
+                background: "var(--surface)",
                 border: `1px solid ${getBorderColor(toast.type)}`,
-                borderRadius: "12px",
+                borderRadius: "6px",
                 padding: "14px 16px",
                 display: "flex",
                 alignItems: "flex-start",
                 gap: "12px",
-                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
               }}
             >
               <div style={{ marginTop: "2px", flexShrink: 0 }}>{getIcon(toast.type)}</div>
