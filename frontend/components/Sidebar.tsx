@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { chatHistoryKey } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import {
   MessageSquare,
@@ -29,6 +30,7 @@ export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logoutUser } = useAuth();
+  const historyKey = chatHistoryKey(user);
   const [collapsed, setCollapsed] = useState(false);
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -39,8 +41,10 @@ export const Sidebar: React.FC = () => {
   // Load and subscribe to saved chat sessions for continuing conversations
   useEffect(() => {
     const loadSessions = () => {
+      setRecentSessions([]);
+      if (!historyKey) return;
       try {
-        const stored = localStorage.getItem("rag_chat_sessions");
+        const stored = localStorage.getItem(historyKey);
         if (stored) {
           const parsed = JSON.parse(stored);
           if (Array.isArray(parsed)) {
@@ -57,7 +61,7 @@ export const Sidebar: React.FC = () => {
       window.removeEventListener("rag-sessions-updated", loadSessions);
       window.removeEventListener("storage", loadSessions);
     };
-  }, []);
+  }, [historyKey]);
 
   const handleNewConversation = () => {
     window.dispatchEvent(new CustomEvent("rag-new-chat"));
@@ -66,13 +70,15 @@ export const Sidebar: React.FC = () => {
 
   const handleDeleteSessionFromSidebar = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!historyKey) return;
     try {
-      const stored = localStorage.getItem("rag_chat_sessions");
+      const stored = localStorage.getItem(historyKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         const filtered = parsed.filter((s: any) => s.id !== sessionId);
-        localStorage.setItem("rag_chat_sessions", JSON.stringify(filtered));
+        localStorage.setItem(historyKey, JSON.stringify(filtered));
         setRecentSessions(filtered);
+        window.dispatchEvent(new CustomEvent("rag-delete-session", {detail:{id:sessionId}}));
         window.dispatchEvent(new CustomEvent("rag-sessions-updated"));
       }
     } catch (e) {}
@@ -120,13 +126,13 @@ export const Sidebar: React.FC = () => {
       name: "Public Book",
       href: "/public-book",
       icon: Search,
-      badge: "Indexed",
+      badge: null,
     },
     {
       name: "Streaming Chat",
       href: "/chat",
       icon: MessageSquare,
-      badge: "Live SSE",
+      badge: null,
     },
     {
       name: "Document Library",
@@ -138,7 +144,7 @@ export const Sidebar: React.FC = () => {
       name: "Admin Dashboard",
       href: "/dashboard",
       icon: BarChart3,
-      badge: "SLA",
+      badge: null,
     },
   ];
 
@@ -228,7 +234,7 @@ export const Sidebar: React.FC = () => {
                         fontWeight: 500,
                       }}
                     >
-                      Production Engine
+                      Document workspace
                     </span>
                   </div>
                 </div>

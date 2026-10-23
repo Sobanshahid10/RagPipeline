@@ -29,12 +29,12 @@ export default function PrivacyPolicyPage() {
           <div className="legal-meta">
             <span>Effective Date: October 4, 2026</span>
             <span>&bull;</span>
-            <span>Version: 1.0 (Production Verified)</span>
+            <span>Version: 1.1</span>
           </div>
         </header>
 
         <div className="legal-badge-notice">
-          <strong>Transparency Notice:</strong> This privacy policy reflects the actual technical architecture of the Nexus RAG Platform. We do not sell personal data, do not run third-party advertising trackers, and enforce cryptographic tenant isolation at the database layer.
+          <strong>Transparency Notice:</strong> This privacy policy reflects the actual technical architecture of the Nexus RAG Platform. We do not sell personal data, do not run third-party advertising trackers, and use workspace-scoped authorization and database row-level policies with a restricted runtime role.
         </div>
 
         <section className="legal-section">
@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
             When you initiate a query, prompt text and retrieved document passages are transmitted to the LLM inference provider configured by the tenant or platform administrator (e.g., Google Gemini or Groq):
           </p>
           <ul>
-            <li>Transmission occurs over encrypted HTTPS connections.</li>
+            <li>Production deployments require HTTPS. Local development uses HTTP on localhost.</li>
             <li>Only retrieved context passages and the user prompt are sent; full document files are never transmitted to LLM providers.</li>
             <li>Refer to the respective provider privacy terms regarding data retention for API inference.</li>
           </ul>
@@ -97,9 +97,9 @@ export default function PrivacyPolicyPage() {
             We do not use advertising cookies, marketing pixels, or third-party behavioral trackers. Our application uses standard browser LocalStorage solely for essential functionality:
           </p>
           <ul>
-            <li><code>rag_token</code>: Your JSON Web Token (JWT) used to authenticate API requests.</li>
+            <li><code>rag_token (session storage)</code>: Your JSON Web Token (JWT) used to authenticate API requests.</li>
             <li><code>rag_settings</code>: Your preferred model and retrieval parameters.</li>
-            <li><code>rag_chat_sessions</code>: Local caching of chat conversation history for instant client rendering.</li>
+            <li><code>rag_chat_sessions:&lt;workspace&gt;:&lt;account&gt;</code>: Local conversation history scoped to the verified workspace and account. Clearing local history does not delete server interaction records.</li>
           </ul>
           <p>
             For more details, please review our <Link href="/cookies" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>Cookie & Local Storage Policy</Link>.

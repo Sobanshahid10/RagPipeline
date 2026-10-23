@@ -1,44 +1,41 @@
 # Production Multi-Tenant RAG & Document Intelligence Platform
 
-A high-accuracy, multi-tenant Retrieval-Augmented Generation (RAG) platform and document intelligence workbench built for enterprise data isolation, layout-aware vision parsing, and verifiable sub-second streaming answers with bounding-box citations and mathematical provenance.
+A multi-tenant Retrieval-Augmented Generation (RAG) application for questions over uploaded documents and a separate public knowledge book. Answers are checked for citation validity and source support before being delivered. See [security remediation and deployment prerequisites](SECURITY_REMEDIATION.md) before upgrading or deploying.
 
-Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7**, **Celery**, **Next.js 14 (App Router)**, **OpenTelemetry**, and **dbt Core**.
+Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7**, **Celery**, **Next.js 16 (App Router)**, **OpenTelemetry**, and **dbt Core**.
 
 ---
 
 ## Architectural Highlights
 
 - **Dual-Corpus Isolation Architecture**:
-  1. **Enterprise Document Library**: Multi-tenant repository supporting PDF, DOCX, and TXT files. Ingests via Celery workers with layout-aware vision parsing, automated Presidio PII anonymization, semantic chunking, 1536-dimensional `gemini-embedding-2` vectors, and Groq-driven knowledge graph entity-relationship extraction.
+  1. **Enterprise Document Library**: Multi-tenant repository supporting PDF, DOCX, and TXT files. Ingests via Celery workers with layout-aware vision parsing, automated Presidio PII anonymization, semantic chunking, 1536-dimensional `gemini-embedding-2` vectors, and knowledge graph extraction using the configured provider.
   2. **Public Knowledge Book Explorer**: Dedicated 9-chapter reference corpus operating on a localized `all-MiniLM-L6-v2` 384-dimensional vector index with reciprocal rank fusion, passage reranking, and line-level citation validation without file uploads.
 - **Strict Multi-Tenant Row-Level Security (RLS)**:
-  - Cryptographically signed JWT tokens automatically inject tenant claims into PostgreSQL session variables (`app.current_tenant_id`) to enforce hardware-grade database row isolation across all tables.
+  - Verified database users select transaction-scoped tenant context. Document operations require authentication, writes require editor/admin permissions, and tenant tables enforce RLS with a restricted runtime role.
 - **Tri-Hybrid Retrieval Engine**:
   - Concurrent `asyncio.gather()` execution combining:
-    1. Lexical search via PostgreSQL `tsvector` + BM25 ranking (`ts_rank_cd`).
+    1. Lexical search via PostgreSQL `tsvector` + full-text ranking (`ts_rank_cd`).
     2. Dense semantic vector search via PostgreSQL `pgvector` HNSW cosine similarity.
     3. Multi-hop knowledge graph traversal via recursive Common Table Expressions (CTEs).
 - **Multi-Model Inference & Resilience**:
   - Per-request answer model selection supporting **Google Gemini** (`gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`) and **Groq** (`openai/gpt-oss-120b`, `openai/gpt-oss-20b`).
-  - Automatic exponential backoff and sibling model fallback on transient provider 500/502/503/504 errors.
-- **Distinctive Non-Default Frontend Composition**:
-  - **Editorial Index Layout (`/public-book`)**: 9-chapter structural table of contents with chapter briefing scopes, verified inquiry blueprints, and an unfolded Evidentiary Margin ledger displaying verbatim source passages.
-  - **Persistent Architectural Context Rail**: Running telemetry header displaying active partition, RLS enforcement status, and active inference model.
-  - **Document + Margin Inspector (`/chat`)**: Split-screen workbench pairing the synthesis stream with a synchronized source margin linking citations directly to normalized bounding box coordinates on the PDF canvas.
-  - **Evidence Coordinates**: Monospace coordinate chips (`LOC // document.pdf § P.1`) encoding verifiable location and page anchors.
-  - **Analytical Inquiry Manifest**: Typographic inquiry briefings with sequence identifiers, replacing generic card grids.
-  - **Monochrome Architectural Aesthetic**: Clean dark surfaces (`#0C0D0E`, `#17181C`), crisp 1px borders, zero AI-cliché purple gradients, and zero decorative glow.
+  - Requests use exactly the selected model/provider. Failures are visible; there is no hidden provider substitution.
+- **Evidence-focused UI**:
+  - Explicit public-book/document source selection, optional document scope, owned conversation context, and account-scoped browser history.
+  - Authenticated original-file previews and source passages; region coordinates are omitted when reliable mapping is unavailable.
+  - Real document stages, failure messages, retry actions, configured model choices and measured answer details.
 - **Observability & Analytics**:
-  - Distributed OpenTelemetry tracing with Jaeger UI, live admin performance dashboard (TTFT percentiles p50/p95/p99, cache hit rate, token volume), and dbt Core analytical marts.
+  - OpenTelemetry HTTP/database tracing with Jaeger UI, live admin performance dashboard (TTFT percentiles p50/p95/p99, cache hit rate, token volume), and dbt Core analytical marts.
 - **Comprehensive Quality Gates**:
-  - 123 automated unit and integration tests passing across Python 3.11/3.13, RAGAS LLM-as-a-judge quality suites, and strict TypeScript compilation with zero type errors.
+  - Mocked-provider regression tests, opt-in real PostgreSQL isolation tests, frontend URL/history tests, TypeScript checks and a production build. Formal G-Eval remains incomplete.
 
 ---
 
 ## System Architecture
 
 ```
-[ Next.js 14 App Router UI ]
+[ Next.js 16 App Router UI ]
         │
         ├──► Real-Time SSE Token Stream
         ├──► Evidence Coordinates (`LOC // doc.pdf § P.1`)
@@ -52,19 +49,14 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
   ├─ JWT Bearer Auth & Tenant Resolution
   ├─ PostgreSQL RLS Context Injection (`app.current_tenant_id`)
   ├─ Presidio PII Masking & Payload Sanitization
-  └─ Sliding-Window Rate Limiter (60 req/min/IP)
+  └─ Redis-shared API/login limits and daily question budgets
         │
-        ├────────────────────────────────────────── [Semantic Cache HIT < 15ms]
-        │                                                  │
-        ▼                                          [ Redis Vector Cache ]
-[ Agentic Query Pipeline ]
-  ├─ Query Intent Classifier (FACTUAL / GRAPH / SQL / DIRECT)
-  ├─ HyDE (Hypothetical Document Embeddings)
-  └─ Multi-Query Expander (3 parallel variants)
+        ▼
+[ Bounded owned conversation context and explicit document scope ]
         │
         ▼
 [ Tri-Hybrid Retrieval Engine — asyncio.gather() ]
-  ├─ BM25 TSVector Lexical Search (PostgreSQL 16)
+  ├─ TSVector Lexical Search (PostgreSQL 16)
   ├─ pgvector HNSW Dense Vector Search (PostgreSQL 16)
   └─ GraphRAG Recursive CTE Multi-Hop (PostgreSQL entity_triples)
         │
@@ -77,7 +69,7 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
         ▼
 [ Multi-Model LLM Generator (Gemini 3.8/3.7 Flash or Groq GPT-OSS 120B/20B) ]
         │
-        ├──► SSE Token Stream ──────────────► Next.js Chat Workbench
+        ├──► Citation + source-support checks, then SSE delivery ► Chat Workbench
         ├──► Citation Coordinates ──────────► PDF Canvas & Margin Inspector
         └──► OpenTelemetry Spans ───────────► Jaeger UI
                                                     │
@@ -86,7 +78,7 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
                                                     │
                                                     ▼
                                           [ dbt Analytics Marts ]
-                                          [ 123-Test Verification Gate ]
+                                          [ Regression Tests ]
 ```
 
 ---
@@ -96,14 +88,14 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
 | Layer | Technology | Purpose |
 |:---|:---|:---|
 | **API Framework** | FastAPI 0.110+ & AsyncPG | Asynchronous REST endpoints, SSE streaming, and background task dispatch |
-| **Database & Vector Store** | PostgreSQL 16 + `pgvector` | HNSW cosine indexing, BM25 TSVector search, and recursive CTE graph traversal |
-| **Cache & Task Broker** | Redis 7 Alpine | Sub-15ms semantic vector cache and Celery distributed message broker |
+| **Database & Vector Store** | PostgreSQL 16 + `pgvector` | HNSW cosine indexing, native full-text ranking, and recursive CTE graph traversal |
+| **Cache & Task Broker** | Redis 7 Alpine | Embedding cache, shared limits, usage accounting and Celery broker |
 | **Asynchronous Worker Queue** | Celery 5.3+ (solo / concurrency) | Layout vision parsing, vector embedding generation, and knowledge graph extraction |
 | **Document Ingestion** | Docling & Microsoft Presidio | Layout vision parsing, table structure extraction, and PII anonymization |
 | **Public Book Index** | `sentence-transformers` (all-MiniLM-L6-v2) | Local 384-dimensional vector embedding space for the public knowledge book |
-| **Frontend Framework** | Next.js 14 (App Router) + TypeScript | Editorial index, split-screen PDF viewer, and streaming chat workbench |
-| **Observability** | OpenTelemetry & Jaeger UI | Distributed span tracing across retrieval, reranking, and generation stages |
-| **Evaluation Suite** | RAGAS & Pytest (123 tests) | Automated grounding, citation precision, and regression testing |
+| **Frontend Framework** | Next.js 16 (App Router) + TypeScript | Editorial index, split-screen PDF viewer, and streaming chat workbench |
+| **Observability** | OpenTelemetry & Jaeger UI | HTTP/database traces and retrieval timing logs |
+| **Evaluation Suite** | Pytest and evaluation tooling | Citation, provider-failure, isolation and retrieval regressions |
 | **Data Warehouse & Marts** | dbt Core (PostgreSQL) | Daily performance marts, latency percentiles, and token accounting |
 | **Production Proxy** | Nginx Alpine | Reverse proxy, unbuffered SSE pass-through, and SSL termination |
 
@@ -115,7 +107,7 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
 .
 ├── backend/
 │   ├── Dockerfile                     # Python 3.11 container definition
-│   ├── requirements.txt               # Pinned backend dependencies
+│   ├── requirements.txt               # Backend dependency requirements
 │   ├── pytest.ini                     # Pytest configuration
 │   ├── app/
 │   │   ├── main.py                    # FastAPI application & security middleware
@@ -128,12 +120,12 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
 │   │   ├── schemas/                   # Pydantic validation schemas
 │   │   ├── ingestion/                 # Docling parser, Presidio PII, Embedder, Graph extractor
 │   │   ├── retrieval/                 # BM25, pgvector HNSW, Graph CTE, RRF fusion, Reranking
-│   │   ├── agentic/                   # Semantic cache, HyDE, Expander, Router, Pipeline
+│   │   ├── agentic/                   # Hybrid query orchestration; experimental utilities are not used
 │   │   └── generation/                # Prompt builder, Citation parser, SSE Streamer
 │   ├── db/
 │   │   └── init.sql                   # Schema definitions, HNSW/GIN indexes, RLS policies
-│   └── tests/                         # 123 unit, integration, and security tests
-├── frontend/                          # Next.js 14 App Router application
+│   └── tests/                         # Unit, integration, and security tests
+├── frontend/                          # Next.js 16 App Router application
 │   ├── Dockerfile                     # Multi-stage container definition
 │   ├── app/
 │   │   ├── (auth)/login/              # Authentication with system specification briefing
@@ -163,7 +155,7 @@ Built on **FastAPI**, **PostgreSQL 16 (`pgvector` + Recursive CTEs)**, **Redis 7
 
 ### Prerequisites
 - [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) installed.
-- (Optional for local development) Python 3.11+ and Node.js 20+.
+- (Optional for local development) Python 3.11+ and Node.js 24 LTS.
 
 ### 1. Clone & Configure Environment
 ```bash
@@ -174,7 +166,7 @@ cd RagPipeline
 cp .env.example .env
 ```
 
-Edit `.env` to configure your API keys:
+Fill the required `DATABASE_URL`, `REDIS_URL`, and a unique `JWT_SECRET` in `.env`; uncomment and populate optional names as needed. For host development use ports 5433/6380; use the restricted `rag_runtime` database role. Compose also needs `RUNTIME_DB_PASSWORD` (production requires administrator/Redis passwords and HTTPS origins). See the remediation guide for existing volumes and public-book deployment. Configure your provider keys:
 ```env
 # Generation & Embeddings
 GEMINI_API_KEY="your-gemini-api-key"
@@ -259,6 +251,9 @@ curl -X POST "http://localhost:8000/api/v1/auth/login" \
 | `POST` | `/api/v1/documents/upload` | Upload document for async layout parsing and indexing | Yes |
 | `GET` | `/api/v1/documents` | List tenant documents with parsing and chunk status | Yes |
 | `GET` | `/api/v1/documents/{id}` | Inspect document chunks and layout metadata | Yes |
+| `POST` | `/api/v1/documents/{id}/retry` | Retry failed or stalled ingestion (editor/admin) | Yes |
+| `GET` | `/api/v1/query/models` | Configured answer providers and models | Yes |
+| `DELETE` | `/api/v1/query/history` | Delete the current user’s saved interactions | Yes |
 | `POST` | `/api/v1/query` | SSE streaming query with bounding-box citations | Yes |
 | `POST` | `/api/v1/public-book/ask` | Grounded query against the public knowledge index | Yes |
 | `POST` | `/api/v1/query/{id}/feedback` | Record thumbs-up / thumbs-down interaction feedback | Yes |
@@ -268,12 +263,12 @@ curl -X POST "http://localhost:8000/api/v1/auth/login" \
 
 ## Automated Verification & Testing
 
-### Run Backend Unit & Integration Tests (123 Tests)
+### Run Backend Unit & Integration Tests
 ```bash
 # Run the complete test suite
 PYTHONPATH=".:backend" pytest backend/tests -v
 ```
-All 123 tests pass across agentic routing, security middleware, multi-tenancy, document ingestion, embeddings, search, reranking, public book endpoints, and prompt generation.
+Provider calls are mocked; no live credentials or provider quota are needed. Set `RAG_TEST_ADMIN_URL` and `RAG_TEST_RUNTIME_URL` only to a dedicated disposable PostgreSQL database to enable the real RLS/ingestion tests. Never point these variables at production.
 
 ### Run Frontend Static Type Check
 ```bash

@@ -1,5 +1,6 @@
 "use client";
 
+import { safeUrl } from "@/lib/safe-url";
 import React, { useState } from "react";
 import { Copy, Check, Terminal, ExternalLink } from "lucide-react";
 
@@ -162,17 +163,6 @@ export const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ content }) =
 };
 
 // ── Helper to sanitize link hrefs ────────────────────────────────────
-function sanitizeHref(url: string): string {
-  const trimmed = url.trim();
-  if (/^https?:\/\//i.test(trimmed) || /^mailto:/i.test(trimmed) || trimmed.startsWith("/")) {
-    return trimmed;
-  }
-  if (/^www\./i.test(trimmed)) {
-    return `https://${trimmed}`;
-  }
-  return trimmed;
-}
-
 // ── Render Clickable Link Component ──────────────────────────────────
 function renderLinkElement(
   key: string | number,
@@ -180,7 +170,7 @@ function renderLinkElement(
   displayText: string,
   isRawUrl: boolean = false
 ): React.ReactNode {
-  const safeHref = sanitizeHref(href);
+  const safeHref = safeUrl(href);
   const isExternal = /^https?:\/\//i.test(safeHref);
 
   return (

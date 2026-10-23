@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { getDocumentStatus, getDocumentFileUrl, deleteDocument, DocumentItem } from "@/lib/api";
-import { PDFViewer } from "@/components/PDFViewer";
+import dynamic from "next/dynamic";
+const PDFViewer = dynamic(() => import("@/components/PDFViewer").then(module => module.PDFViewer), { ssr: false });
 import { 
   ArrowLeft, 
   MessageSquare, 
@@ -249,7 +250,8 @@ export default function DocumentDetailPage() {
           </button>
 
           <button
-            onClick={() => router.push("/chat")}
+            disabled={document.status !== "indexed"}
+            onClick={() => router.push(`/chat?document=${docId}`)}
             className="btn btn-primary"
             style={{ padding: "8px 16px", fontSize: "13px" }}
           >
@@ -258,6 +260,8 @@ export default function DocumentDetailPage() {
           </button>
         </div>
       </div>
+
+      <p role="status" style={{padding:"10px 20px",fontSize:13}}>Status: {document.status}{document.stage ? ` · ${document.stage}` : ""}{document.error ? ` · ${document.error}` : ""}</p>
 
       {/* ── Main Viewer Area ─────────────────────────────────────── */}
       <div style={{ flex: 1, height: "calc(100vh - 65px)", padding: "16px" }}>

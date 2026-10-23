@@ -4,7 +4,11 @@ import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import { 
-  streamQuery, 
+  streamQuery,
+  chatHistoryKey,
+  getDocuments,
+  configuredModels,
+  DocumentItem,
   askPublicBook,
   CitationBlock, 
   QueryMetadata, 
@@ -13,7 +17,8 @@ import {
 } from "@/lib/api";
 import { ChatMessage } from "@/components/ChatMessage";
 import { DEFAULT_MODEL, isAvailableModel, MODEL_OPTIONS } from "@/lib/models";
-import { PDFViewer } from "@/components/PDFViewer";
+import dynamic from "next/dynamic";
+const PDFViewer = dynamic(() => import("@/components/PDFViewer").then(module => module.PDFViewer), { ssr: false });
 import {
   Send,
   MessageSquare,
@@ -44,6 +49,7 @@ interface MessageState {
   content: string;
   citations: CitationBlock[];
   metadata?: QueryMetadata;
+  source?: "documents" | "public_book";
 }
 
 interface ChatSession {
@@ -51,11 +57,47 @@ interface ChatSession {
   title: string;
   messages: MessageState[];
   updatedAt: number;
+  source?: "documents" | "public_book";
+  documentIds?: string[];
 }
 
 export default function ChatPage() {
   const { token, user } = useAuth();
   const { showToast } = useToast();
+  const historyKey = chatHistoryKey(user);
+  const [historyOwner, setHistoryOwner] = useState<string | null>(null);
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [indexedDocs, setIndexedDocs] = useState<DocumentItem[]>([]);
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
+  const requestController = useRef<AbortController | null>(null);
+  useEffect(() => {
+    setAvailableModels([]);
+    setIndexedDocs([]);
+    if (!token) return;
+    let active = true;
+    configuredModels(token)
+      .then(models => { if (active) setAvailableModels(models); })
+      .catch(() => { if (active) setAvailableModels([]); });
+    let refreshing = false;
+    const refreshDocuments = async () => {
+      if (refreshing || document.hidden) return;
+      refreshing = true;
+      try {
+        const docs = await getDocuments(token);
+        if (active) setIndexedDocs(docs.filter(d => d.status === "indexed"));
+      } catch { /* Keep the last successful list during a transient outage. */ }
+      finally { refreshing = false; }
+    };
+    void refreshDocuments();
+    const interval = window.setInterval(refreshDocuments, 15000);
+    window.addEventListener("focus", refreshDocuments);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshDocuments);
+      requestController.current?.abort();
+    };
+  }, [token]);
 
   // Multi-session State
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -103,6 +145,8 @@ export default function ChatPage() {
     }
   };
 
+  useEffect(() => { if (availableModels.length && !availableModels.includes(activeModel)) setActiveModel(availableModels[0]); }, [availableModels, activeModel]);
+
   const [knowledgeSource, setKnowledgeSource] = useState<"documents" | "public_book">("documents");
 
   // PDF Viewer Side Panel State
@@ -116,16 +160,23 @@ export default function ChatPage() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Restore sessions from localStorage
+  // Restore only after verified identity is known; never copy another account's state.
   useEffect(() => {
+    requestController.current?.abort();
+    setMessages([]); setSessions([]); setActiveCitations([]); setShowPdfPanel(false);
+    setIsStreaming(false); setSelectedDocumentIds([]);
+    setHistoryOwner(historyKey);
+    if (!historyKey) return;
     try {
-      const stored = localStorage.getItem("rag_chat_sessions");
+      const stored = localStorage.getItem(historyKey);
       if (stored) {
         const parsed: ChatSession[] = JSON.parse(stored);
         if (parsed.length > 0) {
           setSessions(parsed);
           setCurrentSessionId(parsed[0].id);
           setMessages(parsed[0].messages || []);
+          setKnowledgeSource(parsed[0].source || "documents");
+          setSelectedDocumentIds(parsed[0].documentIds || []);
           return;
         }
       }
@@ -135,18 +186,18 @@ export default function ChatPage() {
 
     // Default initial session
     const initialSession: ChatSession = {
-      id: `session-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: "New Investigation",
       messages: [],
       updatedAt: Date.now(),
     };
     setSessions([initialSession]);
     setCurrentSessionId(initialSession.id);
-  }, []);
+  }, [historyKey]);
 
   // Save current messages to active session in localStorage
   useEffect(() => {
-    if (!currentSessionId || sessions.length === 0) return;
+    if (!historyKey || historyOwner !== historyKey || !currentSessionId || sessions.length === 0) return;
 
     setSessions((prev) => {
       const updated = prev.map((s) => {
@@ -158,24 +209,28 @@ export default function ChatPage() {
               : firstUserMsg.content
             : s.title;
 
-          return { ...s, messages, title, updatedAt: Date.now() };
+          return { ...s, messages, title, source: knowledgeSource, documentIds: selectedDocumentIds, updatedAt: Date.now() };
         }
         return s;
       });
 
-      try {
-        localStorage.setItem("rag_chat_sessions", JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent("rag-sessions-updated"));
-      } catch (e) {
-        console.warn("Storage save error:", e);
-      }
       return updated;
     });
-  }, [messages, currentSessionId]);
+  }, [messages, currentSessionId, historyKey, historyOwner, knowledgeSource, selectedDocumentIds]);
+
+  // Persist after React commits state; never notify other components from a state updater.
+  useEffect(() => {
+    if (!historyKey || historyOwner !== historyKey) return;
+    try {
+      localStorage.setItem(historyKey, JSON.stringify(sessions));
+      window.dispatchEvent(new CustomEvent("rag-sessions-updated"));
+    } catch { /* Browser storage can be disabled. */ }
+  }, [sessions, historyKey, historyOwner]);
 
   // Global listeners for starting a new chat or continuing a past session (from Sidebar or navigation)
   useEffect(() => {
     const handleNew = () => handleCreateNewSession();
+    const handleClearHistory = () => { requestController.current?.abort(); const empty: ChatSession = {id:crypto.randomUUID(),title:"New conversation",messages:[],updatedAt:Date.now()}; setSessions([empty]); setMessages([]); setCurrentSessionId(empty.id); };
     const handleSwitch = (e: any) => {
       const targetId = e.detail?.id;
       if (targetId) {
@@ -186,19 +241,26 @@ export default function ChatPage() {
       }
     };
 
+    const handleDelete = (event: any) => { if (event.detail?.id) handleDeleteSession(event.detail.id); };
+    window.addEventListener("rag-delete-session", handleDelete);
+    window.addEventListener("rag-history-cleared", handleClearHistory);
     window.addEventListener("rag-new-chat", handleNew);
     window.addEventListener("rag-switch-session", handleSwitch);
     return () => {
+      window.removeEventListener("rag-delete-session", handleDelete);
+      window.removeEventListener("rag-history-cleared", handleClearHistory);
       window.removeEventListener("rag-new-chat", handleNew);
       window.removeEventListener("rag-switch-session", handleSwitch);
     };
-  }, [sessions]);
+  }, [sessions, currentSessionId]);
 
   // Check URL query parameters for session restoration or new chat trigger
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const sessionParam = params.get("session");
+      const documentParam = params.get("document");
+      if (documentParam) setSelectedDocumentIds([documentParam]);
       const newParam = params.get("new");
       if (newParam) {
         handleCreateNewSession();
@@ -229,6 +291,7 @@ export default function ChatPage() {
 
   const handleCitationClick = (citation: CitationBlock) => {
     setSelectedCitation(citation);
+    if (citation.source_type === "public_book") setPdfDocId(null);
     if (citation.document_id) {
       setPdfDocId(citation.document_id);
     }
@@ -240,18 +303,16 @@ export default function ChatPage() {
   };
 
   const handleCreateNewSession = () => {
+    requestController.current?.abort();
+    setIsStreaming(false);
     const newSession: ChatSession = {
-      id: `session-${Date.now()}`,
+      id: crypto.randomUUID(),
       title: "New Investigation",
       messages: [],
       updatedAt: Date.now(),
     };
     setSessions((prev) => {
       const updated = [newSession, ...prev];
-      try {
-        localStorage.setItem("rag_chat_sessions", JSON.stringify(updated));
-        window.dispatchEvent(new CustomEvent("rag-sessions-updated"));
-      } catch (e) {}
       return updated;
     });
     setCurrentSessionId(newSession.id);
@@ -264,6 +325,10 @@ export default function ChatPage() {
 
   const handleSwitchSession = (session: ChatSession) => {
     setCurrentSessionId(session.id);
+    requestController.current?.abort();
+    setIsStreaming(false);
+    setKnowledgeSource(session.source || "documents");
+    setSelectedDocumentIds(session.documentIds || []);
     setMessages(session.messages || []);
     setActiveCitations([]);
     setSelectedCitation(null);
@@ -272,12 +337,12 @@ export default function ChatPage() {
     showToast("info", "Continuing Conversation", session.title || "Untitled Chat");
   };
 
-  const handleDeleteSession = (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteSession = (sessionId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
     const filtered = sessions.filter((s) => s.id !== sessionId);
     setSessions(filtered);
     try {
-      localStorage.setItem("rag_chat_sessions", JSON.stringify(filtered));
+      localStorage.setItem(historyKey!, JSON.stringify(filtered));
       window.dispatchEvent(new CustomEvent("rag-sessions-updated"));
     } catch (e) {}
 
@@ -295,8 +360,8 @@ export default function ChatPage() {
     if (!token) return;
     try {
       showToast("info", "Uploading document...", file.name);
-      await uploadDocument(file, token, user?.tenant_id);
-      showToast("success", "Document ingested", `"${file.name}" has been queued for layout parsing.`);
+      const result = await uploadDocument(file, token, user?.tenant_id);
+      showToast(result.status === "failed" ? "error" : "info", result.status === "failed" ? "Retry required in Documents" : "Document status", result.message);
     } catch (err: any) {
       showToast("error", "Upload failed", err.message || "Failed to upload document.");
     }
@@ -306,6 +371,7 @@ export default function ChatPage() {
     if (e) e.preventDefault();
     const queryText = (customPrompt || inputQuery).trim();
     if (!queryText || isStreaming || !token) return;
+    if (!availableModels.includes(activeModel)) { showToast("error", "Select a configured answer model"); return; }
 
     setError(null);
     setInputQuery("");
@@ -316,6 +382,7 @@ export default function ChatPage() {
 
     const userMessage: MessageState = {
       id: userMsgId,
+      source: knowledgeSource,
       role: "user",
       content: queryText,
       citations: [],
@@ -323,6 +390,7 @@ export default function ChatPage() {
 
     const assistantPlaceholder: MessageState = {
       id: assistantMsgId,
+      source: knowledgeSource,
       role: "assistant",
       content: "",
       citations: [],
@@ -331,15 +399,17 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMessage, assistantPlaceholder]);
     setIsStreaming(true);
 
-    const isCreatorQuery = /\b(soban|umar|farooq)\b/i.test(queryText);
+    const controller = new AbortController();
+    requestController.current = controller;
 
     const queryPublicBook = async () => {
       setStreamingPhase("Searching Public Knowledge Book index...");
       try {
-        const res = await askPublicBook(token, queryText, activeModel);
-        const publicCitations: CitationBlock[] = res.sources.map((s, idx) => ({
+        const res = await askPublicBook(token, queryText, activeModel, controller.signal);
+        if (controller.signal.aborted || requestController.current !== controller) return;
+        const publicCitations: CitationBlock[] = res.sources.filter(s => res.citations.includes(s.source_id)).map((s, idx) => ({
           chunk_id: s.chunk_id || `public-source-${idx + 1}`,
-          document_id: s.chunk_id,
+          source_type: "public_book",
           source_filename: s.section ? `${s.section} [${s.source_id}]` : "PUBLIC_KNOWLEDGE_BOOK.md",
           page_number: 1,
           excerpt: s.text,
@@ -357,6 +427,7 @@ export default function ChatPage() {
         );
         setActiveCitations(publicCitations);
       } catch (err: any) {
+        if (controller.signal.aborted) return;
         const errMsg = err.message || "Failed to query public knowledge book.";
         setError(errMsg);
         showToast("error", "Public Book Query Error", errMsg);
@@ -371,14 +442,11 @@ export default function ChatPage() {
           )
         );
       } finally {
-        setIsStreaming(false);
+        if (requestController.current === controller) setIsStreaming(false);
       }
     };
 
-    if (knowledgeSource === "public_book" || isCreatorQuery) {
-      if (isCreatorQuery && knowledgeSource !== "public_book") {
-        setKnowledgeSource("public_book");
-      }
+    if (knowledgeSource === "public_book") {
       await queryPublicBook();
       return;
     }
@@ -389,10 +457,11 @@ export default function ChatPage() {
     const currentCitations: CitationBlock[] = [];
 
     try {
-      for await (const event of streamQuery(queryText, token, activeModel)) {
+      for await (const event of streamQuery(queryText, token, activeModel, currentSessionId, selectedDocumentIds.length ? selectedDocumentIds : undefined, controller.signal)) {
+        if (controller.signal.aborted || requestController.current !== controller) return;
         if (event.type === "token") {
           accumulatedContent += event.content;
-          setStreamingPhase("Synthesizing grounded response...");
+          setStreamingPhase("Receiving verified answer...");
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
@@ -419,43 +488,6 @@ export default function ChatPage() {
         } else if (event.type === "done") {
           const finalAnswer = event.answer || accumulatedContent;
 
-          // If document retrieval abstains, seamlessly fall back to Public Knowledge Book
-          if (
-            finalAnswer.includes("I don't have enough information in the provided documents") &&
-            token
-          ) {
-            setStreamingPhase("Checking Public Knowledge Book...");
-            try {
-              const res = await askPublicBook(token, queryText, activeModel);
-              if (!res.abstained && res.answer && !res.answer.includes("I don't have enough information")) {
-                const publicCitations: CitationBlock[] = res.sources.map((s, idx) => ({
-                  chunk_id: s.chunk_id || `public-source-${idx + 1}`,
-                  document_id: s.chunk_id,
-                  source_filename: s.section ? `${s.section} [${s.source_id}]` : "PUBLIC_KNOWLEDGE_BOOK.md",
-                  page_number: 1,
-                  excerpt: s.text,
-                }));
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMsgId
-                      ? {
-                          ...msg,
-                          content: res.answer,
-                          citations: publicCitations,
-                          metadata: event.metadata,
-                        }
-                      : msg
-                  )
-                );
-                setActiveCitations(publicCitations);
-                setIsStreaming(false);
-                return;
-              }
-            } catch {
-              // Keep original abstention if fallback fails
-            }
-          }
-
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
@@ -476,6 +508,7 @@ export default function ChatPage() {
         }
       }
     } catch (err: any) {
+      if (controller.signal.aborted) return;
       console.error("Stream query error:", err);
       setError(err.message || "Failed to stream query response.");
       showToast("error", "Backend connection error", err.message || "Failed to stream answer.");
@@ -491,7 +524,7 @@ export default function ChatPage() {
         )
       );
     } finally {
-      setIsStreaming(false);
+      if (requestController.current === controller) setIsStreaming(false);
     }
   };
 
@@ -503,6 +536,14 @@ export default function ChatPage() {
   };
 
   const clearChat = () => {
+    requestController.current?.abort();
+    setIsStreaming(false);
+    // A cleared conversation must not reuse its previous server-side turns.
+    const nextSessionId = crypto.randomUUID();
+    setSessions(prev => prev.map(session => session.id === currentSessionId
+      ? { ...session, id: nextSessionId, messages: [], title: "New conversation", updatedAt: Date.now() }
+      : session));
+    setCurrentSessionId(nextSessionId);
     setMessages([]);
     setActiveCitations([]);
     setSelectedCitation(null);
@@ -614,9 +655,10 @@ export default function ChatPage() {
         {/* ── Sleek, Streamlined Header Rail ── */}
         <div
           style={{
-            height: "52px",
             minHeight: "52px",
-            padding: "0 20px",
+            height: "auto",
+            flexWrap: "wrap",
+            padding: "10px 20px",
             borderBottom: "1px solid var(--border)",
             display: "flex",
             alignItems: "center",
@@ -625,7 +667,6 @@ export default function ChatPage() {
             backdropFilter: "blur(14px)",
             zIndex: 10,
             gap: "16px",
-            flexWrap: "nowrap",
           }}
         >
           {/* Left: Chat Title & Scope Toggle */}
@@ -698,7 +739,7 @@ export default function ChatPage() {
           </div>
 
           {/* Right: Model Selector, Inspector, History & Actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 1, flexWrap:"wrap", minWidth:0 }}>
             {/* Answer Model */}
             <div
               style={{
@@ -715,6 +756,7 @@ export default function ChatPage() {
             >
               <Cpu size={13} color="var(--text-muted)" />
               <select
+                disabled={isStreaming || availableModels.length === 0}
                 aria-label="Inference model"
                 value={activeModel}
                 onChange={(e) => chooseAnswerModel(e.target.value)}
@@ -728,7 +770,8 @@ export default function ChatPage() {
                   cursor: "pointer",
                 }}
               >
-                {MODEL_OPTIONS.map((model) => (
+                {availableModels.length === 0 && <option value="">No configured models</option>}
+                {MODEL_OPTIONS.filter(m => availableModels.includes(m.id)).map((model) => (
                   <option key={model.id} value={model.id} style={{ background: "#16181C" }}>
                     {model.label}
                   </option>
@@ -801,6 +844,17 @@ export default function ChatPage() {
             )}
           </div>
         </div>
+
+              {knowledgeSource === "documents" && <label style={{fontSize:"12px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", padding:"8px 20px", borderBottom:"1px solid var(--border)"}}>
+                Evidence scope
+                <select aria-label="Document evidence scope" style={{maxWidth:240,width:"auto"}} className="input-field" value={selectedDocumentIds[0] || ""} onChange={e => setSelectedDocumentIds(e.target.value ? [e.target.value] : [])} disabled={isStreaming}>
+                  <option value="">All indexed documents</option>
+                  {selectedDocumentIds[0] && !indexedDocs.some(doc => doc.document_id === selectedDocumentIds[0]) &&
+                    <option value={selectedDocumentIds[0]} disabled>Selected document is unavailable</option>}
+                  {indexedDocs.map(doc => <option key={doc.document_id} value={doc.document_id}>{doc.filename}</option>)}
+                </select>
+                <button type="button" className="btn btn-ghost" disabled={isStreaming} onClick={() => setKnowledgeSource("public_book")}>Search the public book instead</button>
+              </label>}
 
         {/* Conversation History Drawer */}
         <AnimatePresence>
@@ -979,11 +1033,11 @@ export default function ChatPage() {
             >
               <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
                 <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--text-muted)" }}>
-                  BRIEFING // 01
+                  GET STARTED
                 </span>
                 <span style={{ color: "var(--border)" }}>&bull;</span>
                 <span style={{ fontSize: "11px", fontFamily: "var(--font-mono)", color: "var(--emerald-light)" }}>
-                  ZERO HALLUCINATION PROTOCOL
+                  DOCUMENT QUESTIONS
                 </span>
               </div>
               <h2
@@ -996,14 +1050,15 @@ export default function ChatPage() {
               </h2>
               <p style={{ fontSize: "14px", color: "var(--text-secondary)", marginBottom: "24px", maxWidth: "620px", lineHeight: 1.6 }}>
                 {knowledgeSource === "public_book"
-                  ? "Query the verified public engineering corpus and project histories directly. Answers are synthesized strictly from indexed markdown passages with verified line provenance."
-                  : "Ask questions across your multi-tenant document repository. Every claim is grounded with cryptographic page coordinates and bounding box references."}
+                  ? "Query the public knowledge book and inspect the supporting passages."
+                  : "Ask about your indexed documents and inspect the cited passages. Choose a file above to narrow the evidence scope."}
               </p>
 
               {/* Structured Analytical Inquiry Manifest (Non-card layout) */}
+              {availableModels.length === 0 && <p role="status">No configured answer models are available. Check provider configuration.</p>}
               <div style={{ display: "flex", flexDirection: "column", width: "100%", gap: "8px" }}>
                 <div style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--text-muted)", marginBottom: "4px" }}>
-                  Analytical Inquiries &bull; Direct Execution
+                  Suggested questions
                 </div>
                 {promptSuggestions.map((item, i) => (
                   <button
@@ -1063,6 +1118,7 @@ export default function ChatPage() {
               {messages.map((msg, index) => (
                 <ChatMessage
                   key={msg.id || index}
+                  source={msg.source}
                   role={msg.role}
                   content={msg.content}
                   citations={msg.citations}
@@ -1182,7 +1238,7 @@ export default function ChatPage() {
 
               <button
                 type="submit"
-                disabled={!inputQuery.trim() || isStreaming}
+                disabled={!inputQuery.trim() || isStreaming || !availableModels.includes(activeModel)}
                 className="btn btn-primary"
                 aria-label="Submit query"
                 style={{
@@ -1206,7 +1262,7 @@ export default function ChatPage() {
                 marginTop: "8px",
               }}
             >
-              Answers are synthesized directly from verified indexed sources.
+              Answers use the selected source. Check the cited passages for important decisions.
             </div>
           </div>
         </div>
@@ -1237,7 +1293,7 @@ export default function ChatPage() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              {selectedCitation?.chunk_id?.startsWith("pubbook-") || selectedCitation?.source_filename?.includes("PUBLIC_KNOWLEDGE") ? (
+              {selectedCitation?.source_type === "public_book" ? (
                 <BookOpen size={15} color="var(--accent-light)" />
               ) : (
                 <FileText size={15} color="var(--accent-light)" />
@@ -1284,7 +1340,7 @@ export default function ChatPage() {
 
           {/* Inspector Content */}
           <div style={{ flex: 1, height: "calc(100% - 49px)", overflow: "auto" }}>
-            {selectedCitation?.chunk_id?.startsWith("pubbook-") || selectedCitation?.source_filename?.includes("PUBLIC_KNOWLEDGE") ? (
+            {selectedCitation?.source_type === "public_book" ? (
               <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
                   <span className="badge">
@@ -1304,7 +1360,7 @@ export default function ChatPage() {
                   }}
                 >
                   <div style={{ fontSize: "11px", fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "10px" }}>
-                    Verified Source Passage
+                    Source passage
                   </div>
                   <p style={{ fontSize: "13.5px", lineHeight: "1.7", color: "var(--text)", margin: 0, whiteSpace: "pre-wrap" }}>
                     {selectedCitation.excerpt || "No excerpt text available for this citation."}

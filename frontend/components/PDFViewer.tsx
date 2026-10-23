@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
+import { useAuth } from "@/context/AuthContext";
 import { CitationBlock, BoundingBox } from "@/lib/api";
 import { 
   ChevronLeft, 
@@ -20,7 +21,7 @@ import {
 
 // Configure PDF.js worker
 if (typeof window !== "undefined") {
-  pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
 }
 
 export interface PDFViewerProps {
@@ -40,6 +41,20 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
   activeCitation,
   onPageChange,
 }) => {
+  const { token } = useAuth();
+  const [resolvedFileUrl, setResolvedFileUrl] = useState<string | null>(null);
+  useEffect(() => {
+    setResolvedFileUrl(null);
+    if (!token) return;
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    setIsLoading(true); setError(null);
+    fetch(fileUrl, {headers:{Authorization:`Bearer ${token}`}, signal:controller.signal})
+      .then(response => { if (!response.ok) throw new Error("Document download unavailable"); return response.blob(); })
+      .then(blob => { if (controller.signal.aborted) return; objectUrl = URL.createObjectURL(blob); setResolvedFileUrl(objectUrl); setIsLoading(false); if (!filename.toLowerCase().endsWith(".pdf")) setError("Preview is available for PDFs. Download this original document to view it."); })
+      .catch(err => { if (!controller.signal.aborted) {setError(err.message); setIsLoading(false);} });
+    return () => { controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [fileUrl, token, filename]);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState<number>(initialPage);
   const [scale, setScale] = useState<number>(1.0);
@@ -108,7 +123,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
   // Extract normalized 0-100% coordinates for bounding boxes
   const getNormalizedCoords = (bbox?: BoundingBox) => {
-    if (!bbox) return null;
+    if (!bbox || Object.keys(bbox).length === 0) return null;
     let ymin = bbox.ymin ?? bbox.y ?? 0;
     let xmin = bbox.xmin ?? bbox.x ?? 0;
     let ymax = bbox.ymax ?? (bbox.y !== undefined && bbox.height !== undefined ? bbox.y + bbox.height : 1);
@@ -251,7 +266,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           </button>
 
           <a
-            href={fileUrl}
+            href={resolvedFileUrl || undefined}
             target="_blank"
             rel="noopener noreferrer"
             download={filename}
@@ -366,7 +381,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
 
               <div style={{ display: "flex", gap: "10px" }}>
                 <a
-                  href={fileUrl}
+                  href={resolvedFileUrl || undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-primary"
@@ -419,7 +434,7 @@ export const PDFViewer: React.FC<PDFViewerProps> = ({
           </div>
         ) : (
           <Document
-            file={fileUrl}
+            file={resolvedFileUrl}
             onLoadSuccess={onDocumentLoadSuccess}
             onLoadError={onDocumentLoadError}
             loading=""

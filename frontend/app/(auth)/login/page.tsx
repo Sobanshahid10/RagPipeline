@@ -69,12 +69,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleQuickDemoFill = () => {
-    setEmail("admin@acme.corp");
-    setPassword("SecurePassword2026!");
-    setTenantName("Acme Corporation");
-    showToast("info", "Demo credentials filled", "Ready to sign in or register.");
-  };
 
   return (
     <div
@@ -132,7 +126,7 @@ export default function LoginPage() {
             </h1>
 
             <p style={{ fontSize: "14.5px", color: "var(--text-secondary)", lineHeight: 1.65, maxWidth: "460px" }}>
-              Multi-tenant retrieval platform combining PostgreSQL pgvector, recursive GraphRAG traversal, and layout-grounded passage citations.
+              Multi-tenant retrieval platform combining PostgreSQL pgvector, recursive GraphRAG traversal, and source passage citations.
             </p>
           </div>
 
@@ -149,7 +143,7 @@ export default function LoginPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Row-Level Security (RLS) Isolation</span>
               <span style={{ fontSize: "12.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>
-                Cryptographic JWT claims configure PostgreSQL session variables for tenant data partitioning.
+                Verified accounts select the workspace context used for database access.
               </span>
             </div>
 
@@ -163,7 +157,7 @@ export default function LoginPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Vision Grounding &amp; Provenance</span>
               <span style={{ fontSize: "12.5px", color: "var(--text-muted)", lineHeight: 1.5 }}>
-                Exact document bounding boxes and page spans linked directly to original PDF rendering viewports.
+                Inspect source passages and original document pages. Region highlights appear only when reliable coordinates are available.
               </span>
             </div>
           </div>
@@ -437,37 +431,6 @@ export default function LoginPage() {
             . Passwords are salted and hashed using bcrypt.
           </div>
 
-          {/* Quick Demo Credentials Assistant */}
-          <div
-            style={{
-              marginTop: "20px",
-              padding: "12px",
-              backgroundColor: "rgba(255, 255, 255, 0.025)",
-              border: "1px dashed var(--border)",
-              borderRadius: "10px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "10px",
-            }}
-          >
-            <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
-              <span>Need test credentials?</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleQuickDemoFill}
-              className="btn btn-secondary"
-              style={{
-                padding: "5px 10px",
-                fontSize: "11.5px",
-                borderRadius: "6px",
-              }}
-            >
-              <KeyRound size={12} style={{ color: "var(--text-muted)" }} />
-              <span>Fill Demo Admin</span>
-            </button>
-          </div>
         </motion.div>
       </div>
 

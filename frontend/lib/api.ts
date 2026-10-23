@@ -2,7 +2,7 @@
  * Typed client API library for the Production RAG Pipeline.
  */
 
-export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001").replace(/\/api\/v1\/?$/, "");
+export const API_BASE = (process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === "development" ? "http://localhost:8001" : "")).replace(/\/api\/v1\/?$/, "");
 
 export interface PublicBookSource {
   source_id: string;
@@ -21,11 +21,12 @@ export interface PublicBookAnswer {
   sources: PublicBookSource[];
 }
 
-export async function askPublicBook(token: string, question: string, model: string): Promise<PublicBookAnswer> {
+export async function askPublicBook(token: string, question: string, model: string, signal?: AbortSignal): Promise<PublicBookAnswer> {
   const response = await fetch(`${API_BASE}/api/v1/public-book/ask`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ question, model }),
+    signal,
   });
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
@@ -65,6 +66,7 @@ export interface BoundingBox {
 
 export interface CitationBlock {
   chunk_id: string;
+  source_type?: "documents" | "public_book";
   document_id?: string;
   page_number?: number;
   bounding_box?: BoundingBox;
@@ -81,6 +83,11 @@ export interface QueryMetadata {
   chunks_retrieved?: number;
   source?: string;
   interaction_id?: string;
+  actual_model?: string;
+  actual_provider?: string;
+  validation?: string;
+  token_counts_estimated?: boolean;
+  session_id?: string;
 }
 
 export interface DocumentItem {
@@ -92,6 +99,10 @@ export interface DocumentItem {
   total_pages: number;
   chunk_count: number;
   created_at?: string;
+  stage?: string;
+  error?: string;
+  graph_status?: string;
+  stalled?: boolean;
 }
 
 export type SSEEvent =
@@ -158,12 +169,18 @@ export async function getMe(token: string): Promise<UserProfile> {
 /**
  * Upload a document to the ingestion pipeline.
  */
-export async function uploadDocument(file: File, token: string, tenantId?: string): Promise<DocumentItem> {
+export interface DocumentUploadResult {
+  document_id: string;
+  filename: string;
+  status: string;
+  doc_hash: string;
+  message: string;
+}
+
+export async function uploadDocument(file: File, token: string, tenantId?: string): Promise<DocumentUploadResult> {
   const formData = new FormData();
   formData.append("file", file);
-  if (tenantId) {
-    formData.append("tenant_id", tenantId);
-  }
+
 
   const res = await fetch(`${API_BASE}/api/v1/documents/upload`, {
     method: "POST",
@@ -185,17 +202,14 @@ export async function uploadDocument(file: File, token: string, tenantId?: strin
  * List all documents uploaded for the current tenant.
  */
 export async function getDocuments(token: string, tenantId?: string): Promise<DocumentItem[]> {
-  const url = tenantId 
-    ? `${API_BASE}/api/v1/documents?tenant_id=${encodeURIComponent(tenantId)}`
-    : `${API_BASE}/api/v1/documents`;
+  const url = `${API_BASE}/api/v1/documents`;
 
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
   if (!res.ok) {
-    // If backend doesn't have a list endpoint, return empty list gracefully
-    return [];
+    throw new Error(`Unable to load documents (${res.status}). Please retry.`);
   }
 
   return res.json();
@@ -244,14 +258,15 @@ export async function deleteDocument(id: string, token: string): Promise<{ statu
 /**
  * Stream a grounded SSE query response token-by-token.
  */
-export async function* streamQuery(query: string, token: string, model?: string): AsyncGenerator<SSEEvent, void, unknown> {
+export async function* streamQuery(query: string, token: string, model?: string, sessionId?: string, documentIds?: string[], signal?: AbortSignal): AsyncGenerator<SSEEvent, void, unknown> {
   const response = await fetch(`${API_BASE}/api/v1/query`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ query, model }),
+    body: JSON.stringify({ query, model, session_id: sessionId, document_ids: documentIds }),
+    signal,
   });
 
   if (!response.ok) {
@@ -328,4 +343,27 @@ export async function submitFeedback(interactionId: string, feedback: 1 | -1, to
     const error = await response.json().catch(() => ({}));
     throw new Error(error.detail || `Feedback failed with status ${response.status}`);
   }
+}
+
+export async function retryDocument(id: string, token: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/v1/documents/${id}/retry`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || "Retry failed");
+  }
+}
+
+export function chatHistoryKey(user: UserProfile | null): string | null {
+  return user ? `rag_chat_sessions:${user.tenant_id || user.tenant?.id}:${user.id}` : null;
+}
+
+export async function configuredModels(token: string): Promise<string[]> {
+  const response = await fetch(`${API_BASE}/api/v1/query/models`, {headers:{Authorization:`Bearer ${token}`}});
+  if (!response.ok) throw new Error("Model availability could not be loaded");
+  return (await response.json()).models;
+}
+
+export async function deleteServerHistory(token: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/api/v1/query/history`, {method:"DELETE",headers:{Authorization:`Bearer ${token}`}});
+  if (!response.ok) throw new Error("Saved server interactions could not be deleted");
 }

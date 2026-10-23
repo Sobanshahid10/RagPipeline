@@ -41,6 +41,7 @@ export default function DocumentsPage() {
   const { showToast } = useToast();
   const router = useRouter();
 
+  const [listError, setListError] = useState<string | null>(null);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,7 +61,9 @@ export default function DocumentsPage() {
     try {
       const list = await getDocuments(token, user?.tenant_id);
       setDocuments(list);
+      setListError(null);
     } catch (err: any) {
+      setListError(err.message || "Document library unavailable");
       console.error("Failed to fetch documents:", err);
       showToast("error", "Failed to load documents", err.message);
     } finally {
@@ -71,6 +74,8 @@ export default function DocumentsPage() {
   useEffect(() => {
     fetchDocs();
   }, [fetchDocs]);
+
+  useEffect(() => { setSelectedDoc(previous => previous ? documents.find(d => d.document_id === previous.document_id) || null : null); }, [documents]);
 
   // Polling for documents that are still in 'pending' or 'processing' status
   useEffect(() => {
@@ -99,8 +104,8 @@ export default function DocumentsPage() {
     setUploadFileName(file.name);
 
     try {
-      await uploadDocument(file, token, user?.tenant_id);
-      showToast("success", "Document uploaded", `"${file.name}" queued for layout parsing.`);
+      const result = await uploadDocument(file, token, user?.tenant_id);
+      showToast(result.status === "failed" ? "error" : "info", result.status === "failed" ? "Retry required" : "Document status", result.message);
       await fetchDocs();
     } catch (err: any) {
       showToast("error", "Upload failed", err.message || "Failed to upload document.");
@@ -170,7 +175,7 @@ export default function DocumentsPage() {
   const filteredDocs = documents.filter((doc) => {
     const matchesSearch = doc.filename.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus =
-      statusFilter === "all" || doc.status.toLowerCase() === statusFilter.toLowerCase();
+      statusFilter === "all" || (statusFilter === "ready" ? ["indexed", "ready"].includes(doc.status) : doc.status.toLowerCase() === statusFilter.toLowerCase());
     return matchesSearch && matchesStatus;
   });
 
@@ -219,6 +224,7 @@ export default function DocumentsPage() {
         margin: "0 auto",
       }}
     >
+      {listError && <div role="alert" style={{padding:12,marginBottom:12}}>{listError} <button className="btn btn-secondary" onClick={fetchDocs}>Retry loading documents</button></div>}
       {/* ── Top Header ───────────────────────────────────────────── */}
       <div
         style={{
@@ -556,6 +562,7 @@ export default function DocumentsPage() {
               {/* Status & Actions */}
               <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
                 {getStatusBadge(doc.status)}
+                {doc.stage && <span style={{fontSize:11,color:"var(--text-muted)"}}> {doc.stalled ? "Stalled" : doc.stage}</span>}
 
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <button
@@ -646,6 +653,7 @@ export default function DocumentsPage() {
                     <FileText size={18} color="var(--text-secondary)" />
                   </div>
                   {getStatusBadge(doc.status)}
+                {doc.stage && <span style={{fontSize:11,color:"var(--text-muted)"}}> {doc.stalled ? "Stalled" : doc.stage}</span>}
                 </div>
 
                 <h3

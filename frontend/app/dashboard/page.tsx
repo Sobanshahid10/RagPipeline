@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { API_BASE } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -26,10 +27,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/api\/v1\/?$/, "")
-  : "http://localhost:8001";
-
+// API origin is shared with authenticated document and chat requests.
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface AdminStats {
@@ -87,10 +85,11 @@ const routeColors: Record<string, string> = {
 };
 
 const routeLabel: Record<string, string> = {
-  FACTUAL_VECTOR: "Dense Vector",
+  HYBRID: "Hybrid retrieval",
+  FACTUAL_VECTOR: "Legacy vector route",
   MULTI_HOP_GRAPH: "GraphRAG Traversal",
   ANALYTICAL_SQL: "Analytical SQL",
-  GREETING_DIRECT: "Direct LLM",
+  GREETING_DIRECT: "Greeting",
   CACHE: "Semantic Cache",
   cache: "Semantic Cache",
 };
@@ -118,14 +117,15 @@ export default function DashboardPage() {
       const [statsRes, queriesRes, healthRes] = await Promise.all([
         fetch(`${API_BASE}/api/v1/admin/stats`, { headers }),
         fetch(`${API_BASE}/api/v1/admin/recent_queries?limit=25`, { headers }),
-        fetch(`${API_BASE}/api/v1/admin/health`),
+        fetch(`${API_BASE}/api/v1/admin/health`, { headers }),
       ]);
+      if (!statsRes.ok || !queriesRes.ok || !healthRes.ok) throw new Error("Dashboard unavailable or administrator access required");
       if (statsRes.ok) setStats(await statsRes.json());
       if (queriesRes.ok) setRecentQueries(await queriesRes.json());
       if (healthRes.ok) setHealth(await healthRes.json());
       setLastRefresh(new Date());
     } catch (e) {
-      console.error("Failed to fetch dashboard data:", e);
+      showToast("error", "Dashboard unavailable", e instanceof Error ? e.message : "Please retry");
     } finally {
       setLoading(false);
     }
@@ -175,7 +175,7 @@ export default function DashboardPage() {
             <span className="badge badge-accent">Live Observability</span>
           </div>
           <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-            Real-time latency SLA monitoring, semantic cache telemetry, and distributed query analytics.
+            Real-time latency SLA monitoring, service availability and query analytics.
           </p>
         </div>
 

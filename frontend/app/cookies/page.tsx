@@ -59,7 +59,7 @@ export default function CookiesPage() {
               </thead>
               <tbody>
                 <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
-                  <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono, monospace" }}>rag_token</td>
+                  <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono, monospace" }}>rag_token (session storage)</td>
                   <td style={{ padding: "10px 14px", color: "var(--text-secondary)" }}>LocalStorage</td>
                   <td style={{ padding: "10px 14px", color: "var(--text-secondary)" }}>Holds the signed JSON Web Token (JWT) required to authorize API calls to the backend.</td>
                   <td style={{ padding: "10px 14px", color: "var(--emerald-light)", fontWeight: 600 }}>Strictly Necessary</td>
@@ -71,7 +71,7 @@ export default function CookiesPage() {
                   <td style={{ padding: "10px 14px", color: "var(--accent-light)", fontWeight: 600 }}>Functional Preference</td>
                 </tr>
                 <tr>
-                  <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono, monospace" }}>rag_chat_sessions</td>
+                  <td style={{ padding: "10px 14px", fontFamily: "JetBrains Mono, monospace" }}>rag_chat_sessions:&lt;workspace&gt;:&lt;account&gt;</td>
                   <td style={{ padding: "10px 14px", color: "var(--text-secondary)" }}>LocalStorage</td>
                   <td style={{ padding: "10px 14px", color: "var(--text-secondary)" }}>Caches recent chat exchanges client-side so conversations re-render instantly without waiting for network re-fetch.</td>
                   <td style={{ padding: "10px 14px", color: "var(--accent-light)", fontWeight: 600 }}>Functional / Performance</td>

@@ -3,12 +3,14 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { CitationBlock, QueryMetadata } from "@/lib/api";
+import { RAGPipelineInspector } from "@/components/RAGPipelineInspector";
 import { useToast } from "@/context/ToastContext";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { FileText, Copy, Check, Sparkles } from "lucide-react";
 
 export interface ChatMessageProps {
   role: "user" | "assistant";
+  source?: "documents" | "public_book";
   content: string;
   citations?: CitationBlock[];
   isStreaming?: boolean;
@@ -19,9 +21,11 @@ export interface ChatMessageProps {
 
 export const ChatMessage: React.FC<ChatMessageProps> = ({
   role,
+  source,
   content,
   citations = [],
   isStreaming = false,
+  metadata,
   onCitationClick,
   activeCitation,
 }) => {
@@ -119,7 +123,9 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             color: "var(--foreground)",
           }}
         >
+          {source && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:6}}>Source: {source === "public_book" ? "Public knowledge book" : "Selected workspace documents"}</div>}
           <MarkdownRenderer content={displayContent} />
+          <RAGPipelineInspector metadata={metadata} />
           {isStreaming && <span className="streaming-cursor" />}
         </div>
 
