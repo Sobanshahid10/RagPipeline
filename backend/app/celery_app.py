@@ -14,12 +14,14 @@ celery_app = Celery(
     backend=settings.REDIS_URL,
     include=[
         "app.ingestion.pipeline",
-        "evaluation.hard_negative_miner",
-    ]
+    ],
 )
 
 celery_app.conf.update(
     task_serializer="json",
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
     accept_content=["json"],
     result_serializer="json",
     timezone="UTC",
@@ -30,12 +32,6 @@ celery_app.conf.update(
         "app.tasks.low_priority.*": {"queue": "low_priority"},
         "evaluation.hard_negative_miner.*": {"queue": "low_priority"},
     },
-    beat_schedule={
-        "mine-hard-negatives-every-6-hours": {
-            "task": "evaluation.hard_negative_miner.mine_hard_negatives",
-            "schedule": 21600.0,  # 6 hours in seconds
-            "args": (6, "evaluation/golden_dataset.json"),
-        },
-    },
+    # Tenant interactions must never be copied into a shared/public evaluation dataset automatically.
+    beat_schedule={},
 )
-

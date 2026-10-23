@@ -1,251 +1,221 @@
-"""
-Document Ingestion Pipeline Celery Task.
-
-Orchestrates the end-to-end background document ingestion lifecycle:
-1. Status transition -> 'processing'
-2. Docling Vision / Layout Parsing -> Pages & Bounding Boxes
-3. Presidio PII Masking -> Sanitized Content
-4. Global Document Contextual Summary Generation
-5. Sentence-Aware Semantic Chunking -> Context-Injected Chunks with UUIDs
-6. Batch Vector Embedding Generation with Redis Caching
-7. Bulk Insertion into PostgreSQL `chunks` table
-8. Knowledge Graph Entity & Triple Extraction (Parallel GraphRAG via asyncio.gather)
-9. Status transition -> 'indexed' (or 'failed' on fatal errors)
-"""
+"""Bounded, retry-safe document ingestion with explicit stage state."""
 
 from __future__ import annotations
 
-import os
-import uuid
-import json
 import asyncio
+import json
 import logging
-from typing import Dict, Any, List
-import asyncpg
+import uuid
+from typing import Any
 
 from app.celery_app import celery_app
 from app.config import settings
+from app.db.tenant import tenant_connection
+from app.ingestion.chunker import semantic_chunk
+from app.ingestion.contextual import generate_contextual_summary
+from app.ingestion.embedder import embed_batch, embedding_identity
+from app.ingestion.graph_extractor import extract_triples
 from app.ingestion.parser import parse_document
 from app.ingestion.pii import mask_pii
-from app.ingestion.contextual import generate_contextual_summary
-from app.ingestion.chunker import semantic_chunk
-from app.ingestion.embedder import embed_batch
-from app.ingestion.graph_extractor import extract_triples
 
 logger = logging.getLogger(__name__)
 
 
-def _get_raw_db_url(url: str) -> str:
-    """Convert SQLAlchemy asyncpg URL to standard PostgreSQL connection URL."""
-    if url.startswith("postgresql+asyncpg://"):
-        return url.replace("postgresql+asyncpg://", "postgresql://")
-    return url
-
-
 async def _update_document_status(
-    doc_id: str,
-    status: str,
-    total_pages: int = 0,
-    error_msg: str = None
-) -> None:
-    """Helper to update document state and metadata in PostgreSQL."""
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
-        if error_msg:
-            await conn.execute(
-                """
-                UPDATE documents 
-                SET status = $1, metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{error}', to_jsonb($2::text)), updated_at = NOW()
-                WHERE id = $3::uuid
-                """,
-                status, error_msg, doc_id
-            )
-        else:
-            await conn.execute(
-                """
-                UPDATE documents 
-                SET status = $1, total_pages = GREATEST(total_pages, $2), updated_at = NOW()
-                WHERE id = $3::uuid
-                """,
-                status, total_pages, doc_id
-            )
-    finally:
-        await conn.close()
-
-
-async def _persist_chunks(
-    doc_id: str,
-    tenant_id: str,
-    chunks: List[Dict[str, Any]]
-) -> None:
-    """Bulk insert extracted chunks into the PostgreSQL chunks table with vector embeddings and TSVector."""
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
-        # Prepare records for executemany, ensuring null-bytes are purged for PostgreSQL compatibility
-        records = [
-            (
-                c["id"],
-                doc_id,
-                tenant_id,
-                c["chunk_index"],
-                (c.get("content") or "").replace("\x00", ""),
-                (c.get("contextual_summary") or "").replace("\x00", ""),
-                c.get("page_number", 1),
-                json.dumps(c.get("bounding_box", {})),
-                c.get("token_count", 0),
-                f"[{','.join(map(str, c['embedding']))}]" if c.get("embedding") else None
-            )
-            for c in chunks
-        ]
-
-        await conn.executemany(
-            """
-            INSERT INTO chunks (
-                id, document_id, tenant_id, chunk_index, content,
-                contextual_summary, page_number, bounding_box, token_count,
-                embedding, sparse_tsv, created_at
-            ) VALUES (
-                $1::uuid, $2::uuid, $3::uuid, $4, $5,
-                $6, $7, $8::jsonb, $9,
-                $10::vector, to_tsvector('english', $5), NOW()
-            )
-            """,
-            records
+    doc_id, status, total_pages=0, error_msg=None, *, tenant_id, **metadata
+):
+    if error_msg:
+        metadata["error"] = error_msg
+    async with tenant_connection(tenant_id) as conn:
+        await conn.execute(
+            """UPDATE documents SET status=$1, total_pages=GREATEST(total_pages,$2),
+            metadata=(metadata - 'error') || $3::jsonb, updated_at=NOW()
+            WHERE id=$4::uuid AND tenant_id=$5::uuid""",
+            status,
+            total_pages,
+            json.dumps(metadata),
+            doc_id,
+            tenant_id,
         )
-    finally:
-        await conn.close()
 
 
-async def run_pipeline(document_id: str, tenant_id: str, file_path: str) -> Dict[str, Any]:
-    """Async execution wrapper for the ingestion pipeline."""
-    logger.info(f"Starting ingestion pipeline for document={document_id}, file={file_path}")
-
-    # Step 1: Update status to 'processing'
-    await _update_document_status(document_id, status="processing")
-
-    try:
-        # Step 2: Parse document layout and extract pages
-        pages = parse_document(file_path)
-        if not pages:
-            raise ValueError(f"No readable content or pages extracted from {file_path}")
-
-        total_pages = len(pages)
-
-        # Step 3: Mask PII on each page
-        masked_pages = []
-        full_text_accumulator = []
-
-        for p in pages:
-            sanitized_text = mask_pii(p["content"])
-            masked_pages.append({
-                "page_number": p["page_number"],
-                "content": sanitized_text,
-                "bounding_boxes": p.get("bounding_boxes", [])
-            })
-            if sanitized_text.strip():
-                full_text_accumulator.append(sanitized_text)
-
-        combined_doc_text = "\n\n".join(full_text_accumulator)
-
-        # Step 4: Generate Global Contextual Summary
-        summary = await generate_contextual_summary(combined_doc_text)
-
-        # Step 5: Semantic Chunking per Page with UUIDs
-        all_chunks: List[Dict[str, Any]] = []
-        global_chunk_idx = 0
-
-        for p in masked_pages:
-            if not p["content"].strip():
-                continue
-
-            page_chunks = semantic_chunk(
-                text=p["content"],
-                contextual_summary=summary,
-                chunk_size=512,
-                overlap=64
-            )
-
-            for chunk in page_chunks:
-                # Find matching or representative bounding box from page
-                matched_bbox = p["bounding_boxes"][0] if p.get("bounding_boxes") else {}
-
-                all_chunks.append({
-                    "id": str(uuid.uuid4()),
-                    "chunk_index": global_chunk_idx,
-                    "content": chunk["content"],
-                    "token_count": chunk["token_count"],
-                    "contextual_summary": summary,
-                    "page_number": p["page_number"],
-                    "bounding_box": matched_bbox
-                })
-                global_chunk_idx += 1
-
-        # Step 6: Batch generate embeddings for all chunks with Redis caching
-        if all_chunks:
-            chunk_texts = [c["content"] for c in all_chunks]
-            redis_client = None
-            try:
-                import redis.asyncio as aioredis
-                redis_client = aioredis.from_url(settings.REDIS_URL)
-            except Exception as r_err:
-                logger.warning(f"Could not connect to Redis for embedding cache: {r_err}")
-
-            try:
-                embeddings = await embed_batch(chunk_texts, redis_client=redis_client)
-                for idx, emb in enumerate(embeddings):
-                    all_chunks[idx]["embedding"] = emb
-            finally:
-                if redis_client is not None:
-                    try:
-                        await redis_client.aclose()
-                    except Exception:
-                        pass
-
-        # Step 7: Bulk insert chunks into PostgreSQL
-        if all_chunks:
-            await _persist_chunks(document_id, tenant_id, all_chunks)
-
-        # Step 8: Knowledge Graph Entity & Triple Extraction in Parallel
-        if all_chunks:
-            logger.info(f"Extracting knowledge graph triples for {len(all_chunks)} chunks (tenant={tenant_id})")
-            extraction_tasks = [
-                extract_triples(
-                    chunk_id=c["id"],
-                    chunk_content=c["content"],
-                    tenant_id=tenant_id
+async def _persist_chunks(doc_id, tenant_id, chunks):
+    # A failed attempt's chunks and graph are replaced atomically on retry.
+    async with tenant_connection(tenant_id) as conn:
+        await conn.execute(
+            "DELETE FROM chunks WHERE document_id=$1::uuid AND tenant_id=$2::uuid",
+            doc_id,
+            tenant_id,
+        )
+        await conn.executemany(
+            """INSERT INTO chunks(id,document_id,tenant_id,chunk_index,content,
+            contextual_summary,page_number,bounding_box,token_count,embedding,sparse_tsv)
+            VALUES($1::uuid,$2::uuid,$3::uuid,$4,$5,$6,$7,$8::jsonb,$9,$10::vector,to_tsvector('english',$5))""",
+            [
+                (
+                    c["id"],
+                    doc_id,
+                    tenant_id,
+                    c["chunk_index"],
+                    c["content"].replace("\x00", ""),
+                    c["contextual_summary"],
+                    c["page_number"],
+                    json.dumps(c["bounding_box"]),
+                    c["token_count"],
+                    str(c["embedding"]),
                 )
-                for c in all_chunks
-            ]
-            await asyncio.gather(*extraction_tasks, return_exceptions=True)
+                for c in chunks
+            ],
+        )
 
-        # Step 9: Mark document as 'indexed'
-        await _update_document_status(document_id, status="indexed", total_pages=total_pages)
 
-        logger.info(f"Ingestion successful for document={document_id}. Total chunks: {len(all_chunks)}")
-        return {
-            "document_id": document_id,
-            "status": "indexed",
-            "total_pages": total_pages,
-            "total_chunks": len(all_chunks)
-        }
+async def run_pipeline(
+    document_id: str, tenant_id: str, file_path: str, job_id: str | None = None
+) -> dict[str, Any]:
+    # Shared with retry/delete; duplicate Celery delivery cannot run concurrently.
+    async with tenant_connection(tenant_id) as lock:
+        acquired = await lock.fetchval(
+            "SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))", document_id
+        )
+        if not acquired:
+            return {"document_id": document_id, "status": "already_running"}
+        row = await lock.fetchrow(
+            "SELECT status,storage_uri,metadata->>'job_id' AS job_id FROM documents WHERE id=$1::uuid AND tenant_id=$2::uuid",
+            document_id,
+            tenant_id,
+        )
+        if not row or row["status"] not in ("pending", "failed", "processing"):
+            return {"document_id": document_id, "status": "skipped"}
+        if row["job_id"] != job_id:
+            return {"document_id": document_id, "status": "superseded"}
+        from pathlib import Path
 
-    except Exception as exc:
-        logger.error(f"Ingestion failed for document {document_id}: {exc}", exc_info=True)
+        path = Path(file_path).resolve()
+        if path != Path(row["storage_uri"]).resolve() or not path.is_relative_to(
+            Path(settings.UPLOAD_DIR).resolve()
+        ):
+            raise RuntimeError("Invalid document storage path")
         try:
-            await _update_document_status(document_id, status="failed", error_msg=str(exc))
-        except Exception as db_err:
-            logger.error(f"Failed to record failure status in DB: {db_err}")
-        raise exc
+            identity = embedding_identity()
+            await _update_document_status(
+                document_id, "processing", tenant_id=tenant_id, stage="parsing"
+            )
+            pages = await asyncio.to_thread(parse_document, str(path))
+            if not pages or len(pages) > settings.MAX_DOCUMENT_PAGES:
+                raise ValueError("No readable pages or page limit exceeded")
+            if sum(len(p["content"]) for p in pages) > settings.MAX_DOCUMENT_CHARS:
+                raise ValueError("Extracted text limit exceeded")
+            await _update_document_status(
+                document_id,
+                "processing",
+                tenant_id=tenant_id,
+                stage="privacy",
+                total_pages=len(pages),
+            )
+            masked_pages = []
+            for page in pages:
+                masked_pages.append(
+                    {
+                        **page,
+                        "content": await asyncio.to_thread(mask_pii, page["content"]),
+                    }
+                )
+            text = "\n\n".join(p["content"] for p in masked_pages)
+            if not text.strip():
+                raise ValueError("Document has no usable text after privacy processing")
+            summary = await generate_contextual_summary(text)
+            chunks = []
+            for page in masked_pages:
+                for chunk in semantic_chunk(
+                    page["content"],
+                    contextual_summary=summary,
+                    chunk_size=512,
+                    overlap=64,
+                ):
+                    if not chunk["content"].strip():
+                        continue
+                    # Without reliable offsets, show page-level provenance; never invent a region.
+                    chunks.append(
+                        {
+                            "id": str(uuid.uuid4()),
+                            "chunk_index": len(chunks),
+                            "content": chunk["content"],
+                            "token_count": chunk["token_count"],
+                            "contextual_summary": summary,
+                            "page_number": page["page_number"],
+                            "bounding_box": {},
+                        }
+                    )
+                    if len(chunks) > settings.MAX_DOCUMENT_CHUNKS:
+                        raise ValueError("Document exceeds chunk limit")
+            if not chunks:
+                raise ValueError("Document has no indexable chunks")
+            await _update_document_status(
+                document_id, "processing", tenant_id=tenant_id, stage="embedding"
+            )
+            vectors = await embed_batch([c["content"] for c in chunks])
+            if len(vectors) != len(chunks):
+                raise RuntimeError("Embedding count mismatch")
+            for chunk, vector in zip(chunks, vectors):
+                chunk["embedding"] = vector
+            await _update_document_status(
+                document_id, "processing", tenant_id=tenant_id, stage="indexing"
+            )
+            await _persist_chunks(document_id, tenant_id, chunks)
+            await _update_document_status(
+                document_id, "processing", tenant_id=tenant_id, stage="graph"
+            )
+            failures = 0
+            graph_chunks = chunks[: settings.MAX_GRAPH_CHUNKS]
+            for offset in range(0, len(graph_chunks), 4):
+                results = await asyncio.gather(
+                    *(
+                        extract_triples(c["id"], c["content"], tenant_id)
+                        for c in graph_chunks[offset : offset + 4]
+                    ),
+                    return_exceptions=True,
+                )
+                failures += sum(isinstance(result, BaseException) for result in results)
+            await _update_document_status(
+                document_id,
+                "indexed",
+                total_pages=len(pages),
+                tenant_id=tenant_id,
+                stage="complete",
+                embedding_identity=identity,
+                pii_mode="presidio" if settings.PII_REQUIRED else "best_effort",
+                graph_status="degraded"
+                if failures
+                else "limited"
+                if len(graph_chunks) < len(chunks)
+                else "complete",
+            )
+            return {
+                "document_id": document_id,
+                "status": "indexed",
+                "total_pages": len(pages),
+                "total_chunks": len(chunks),
+            }
+        except Exception as exc:
+            logger.warning(
+                "Ingestion failed for document %s (%s)", document_id, type(exc).__name__
+            )
+            await _update_document_status(
+                document_id,
+                "failed",
+                tenant_id=tenant_id,
+                stage="failed",
+                error_msg="Processing failed. Check provider availability, privacy model installation, and document limits; then retry.",
+            )
+            raise
 
 
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=10)
-def process_document(self, document_id: str, tenant_id: str, file_path: str):
-    """
-    Celery background worker entrypoint for document ingestion.
-    """
+@celery_app.task(bind=True, max_retries=3, soft_time_limit=840, time_limit=900)
+def process_document(self, document_id, tenant_id, file_path, job_id=None):
     try:
-        return asyncio.run(run_pipeline(document_id, tenant_id, file_path))
+        return asyncio.run(run_pipeline(document_id, tenant_id, file_path, job_id))
     except Exception as exc:
-        logger.warning(f"Retrying document processing task {self.request.id} due to: {exc}")
-        # Retry with exponential backoff up to max_retries
-        raise self.retry(exc=exc, countdown=2 ** self.request.retries * 5)
+        raise self.retry(
+            exc=RuntimeError("Document processing failed"),
+            countdown=2**self.request.retries * 5,
+        ) from exc

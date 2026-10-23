@@ -6,7 +6,7 @@ Celery periodic task `mine_hard_negatives` running every 6 hours:
 1. Queries query_interactions WHERE user_feedback = -1 AND created_at > NOW() - INTERVAL '6 hours'
 2. Sends diagnostic prompt to LLM to classify failure mode:
    (retrieval_fail | hallucination | context_loss | wrong_route) and provide corrected ground truth.
-3. Appends mined negative interactions to evaluation/golden_dataset.json with
+3. Appends mined negative interactions to storage/private/evaluation/golden_dataset.json with
    "source": "hard_negative_mining" and "failure_mode".
 4. Logs count of new entries added per run.
 """
@@ -24,7 +24,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 
 try:
     from app.celery_app import celery_app
@@ -40,7 +42,9 @@ VALID_FAILURE_MODES = {"retrieval_fail", "hallucination", "context_loss", "wrong
 
 def _get_database_url() -> str:
     """Retrieve raw postgresql connection URL."""
-    db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rag_pipeline")
+    db_url = os.getenv(
+        "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/rag_pipeline"
+    )
     # Replace asyncpg dialect with standard postgresql for asyncpg driver
     if "+asyncpg" in db_url:
         db_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
@@ -55,6 +59,7 @@ async def fetch_negative_interactions(
     url = db_url or _get_database_url()
     try:
         import asyncpg
+
         conn = await asyncpg.connect(url)
         try:
             query = """
@@ -69,7 +74,9 @@ async def fetch_negative_interactions(
         finally:
             await conn.close()
     except Exception as exc:
-        logger.warning("Could not query live postgres database for interactions: %s", exc)
+        logger.warning(
+            "Could not query live postgres database for interactions: %s", exc
+        )
         return []
 
 
@@ -100,15 +107,19 @@ Return JSON: {{"failure_mode": "retrieval_fail|hallucination|context_loss|wrong_
     if api_key:
         try:
             from openai import OpenAI
+
             client = OpenAI(api_key=api_key)
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "You are a RAG evaluation diagnostician. Output strict JSON only."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system",
+                        "content": "You are a RAG evaluation diagnostician. Output strict JSON only.",
+                    },
+                    {"role": "user", "content": prompt},
                 ],
                 temperature=0.0,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
             )
             raw_content = response.choices[0].message.content or "{}"
             parsed = json.loads(raw_content)
@@ -117,10 +128,15 @@ Return JSON: {{"failure_mode": "retrieval_fail|hallucination|context_loss|wrong_
                 mode = "retrieval_fail"
             return {
                 "failure_mode": mode,
-                "correct_answer": parsed.get("correct_answer", f"Accurate synthesized answer for query: {raw_query}")
+                "correct_answer": parsed.get(
+                    "correct_answer",
+                    f"Accurate synthesized answer for query: {raw_query}",
+                ),
             }
         except Exception as exc:
-            logger.warning("OpenAI LLM diagnostic call failed: %s; using heuristic analyzer", exc)
+            logger.warning(
+                "OpenAI LLM diagnostic call failed: %s; using heuristic analyzer", exc
+            )
 
     # Heuristic Diagnostic Fallback for offline / CI testing
     if not chunk_excerpts or "No relevant chunks" in chunk_excerpts:
@@ -142,20 +158,78 @@ Return JSON: {{"failure_mode": "retrieval_fail|hallucination|context_loss|wrong_
 def deduce_category_from_query(query: str) -> str:
     """Classify category from query content for golden dataset schema."""
     q = query.lower()
-    if any(k in q for k in ["pto", "leave", "holiday", "bereavement", "401k", "bonus", "salary", "hr", "wellness", "sabbatical"]):
+    if any(
+        k in q
+        for k in [
+            "pto",
+            "leave",
+            "holiday",
+            "bereavement",
+            "401k",
+            "bonus",
+            "salary",
+            "hr",
+            "wellness",
+            "sabbatical",
+        ]
+    ):
         return "HR_Policy"
-    if any(k in q for k in ["revenue", "ebitda", "margin", "quarter", "capex", "eps", "financial", "cash", "debt", "nrr", "arr"]):
+    if any(
+        k in q
+        for k in [
+            "revenue",
+            "ebitda",
+            "margin",
+            "quarter",
+            "capex",
+            "eps",
+            "financial",
+            "cash",
+            "debt",
+            "nrr",
+            "arr",
+        ]
+    ):
         return "Financial_Reports"
-    if any(k in q for k in ["contract", "nda", "liability", "breach", "indemnification", "msa", "dpa", "gdpr", "sla", "warranty", "governing law"]):
+    if any(
+        k in q
+        for k in [
+            "contract",
+            "nda",
+            "liability",
+            "breach",
+            "indemnification",
+            "msa",
+            "dpa",
+            "gdpr",
+            "sla",
+            "warranty",
+            "governing law",
+        ]
+    ):
         return "Legal_Contracts"
-    if any(k in q for k in ["onboard", "first day", "yubikey", "sso", "slack", "laptop", "buddy", "expensify", "checklist", "dev container"]):
+    if any(
+        k in q
+        for k in [
+            "onboard",
+            "first day",
+            "yubikey",
+            "sso",
+            "slack",
+            "laptop",
+            "buddy",
+            "expensify",
+            "checklist",
+            "dev container",
+        ]
+    ):
         return "Onboarding"
     return "Technical_Docs"
 
 
 def append_to_golden_dataset(
     mined_entries: list[dict[str, Any]],
-    dataset_path: str = "evaluation/golden_dataset.json",
+    dataset_path: str = "storage/private/evaluation/golden_dataset.json",
 ) -> int:
     """
     Append new mined entries to golden_dataset.json, preventing duplicates.
@@ -172,7 +246,9 @@ def append_to_golden_dataset(
             logger.error("Could not parse existing golden dataset: %s", exc)
             existing_items = []
 
-    existing_queries = {item.get("query", "").strip().lower() for item in existing_items}
+    existing_queries = {
+        item.get("query", "").strip().lower() for item in existing_items
+    }
     added_count = 0
 
     for item in mined_entries:
@@ -188,16 +264,24 @@ def append_to_golden_dataset(
         target.parent.mkdir(parents=True, exist_ok=True)
         with open(target, "w", encoding="utf-8") as f:
             json.dump(existing_items, f, indent=2, ensure_ascii=False)
-        logger.info("Appended %d new mined entries to %s (total: %d)", added_count, target, len(existing_items))
+        logger.info(
+            "Appended %d new mined entries to %s (total: %d)",
+            added_count,
+            target,
+            len(existing_items),
+        )
     else:
-        logger.info("No new unique negative interactions to append (total remains %d)", len(existing_items))
+        logger.info(
+            "No new unique negative interactions to append (total remains %d)",
+            len(existing_items),
+        )
 
     return added_count
 
 
 def process_negative_interactions(
     interactions: list[dict[str, Any]],
-    dataset_path: str = "evaluation/golden_dataset.json",
+    dataset_path: str = "storage/private/evaluation/golden_dataset.json",
 ) -> int:
     """Run analysis on interactions and append valid items to dataset."""
     mined_entries = []
@@ -238,11 +322,20 @@ def process_negative_interactions(
 
 # Celery Task Definition
 if celery_app is not None:
+
     @celery_app.task(name="evaluation.hard_negative_miner.mine_hard_negatives")
-    def mine_hard_negatives(lookback_hours: int = 6, dataset_path: str = "evaluation/golden_dataset.json") -> dict[str, Any]:
+    def mine_hard_negatives(
+        lookback_hours: int = 6,
+        dataset_path: str = "storage/private/evaluation/golden_dataset.json",
+    ) -> dict[str, Any]:
         """Celery periodic task executing hard negative mining."""
-        logger.info("Executing periodic hard negative mining (lookback: %d hours)...", lookback_hours)
-        interactions = asyncio.run(fetch_negative_interactions(lookback_hours=lookback_hours))
+        logger.info(
+            "Executing periodic hard negative mining (lookback: %d hours)...",
+            lookback_hours,
+        )
+        interactions = asyncio.run(
+            fetch_negative_interactions(lookback_hours=lookback_hours)
+        )
         added = process_negative_interactions(interactions, dataset_path=dataset_path)
         return {
             "status": "SUCCESS",
@@ -251,10 +344,18 @@ if celery_app is not None:
             "new_entries_added": added,
         }
 else:
-    def mine_hard_negatives(lookback_hours: int = 6, dataset_path: str = "evaluation/golden_dataset.json") -> dict[str, Any]:
+
+    def mine_hard_negatives(
+        lookback_hours: int = 6,
+        dataset_path: str = "storage/private/evaluation/golden_dataset.json",
+    ) -> dict[str, Any]:
         """Standalone fallback if Celery is not loaded."""
-        logger.info("Executing hard negative mining (lookback: %d hours)...", lookback_hours)
-        interactions = asyncio.run(fetch_negative_interactions(lookback_hours=lookback_hours))
+        logger.info(
+            "Executing hard negative mining (lookback: %d hours)...", lookback_hours
+        )
+        interactions = asyncio.run(
+            fetch_negative_interactions(lookback_hours=lookback_hours)
+        )
         added = process_negative_interactions(interactions, dataset_path=dataset_path)
         return {
             "status": "SUCCESS",
@@ -265,27 +366,46 @@ else:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Mine hard negatives from negative user feedback.")
-    parser.add_argument("--lookback-hours", type=int, default=6, help="Lookback window in hours")
-    parser.add_argument("--dataset", type=str, default="evaluation/golden_dataset.json", help="Path to golden dataset")
-    parser.add_argument("--mock-sample", action="store_true", help="Mine a mock negative interaction for testing")
+    parser = argparse.ArgumentParser(
+        description="Mine hard negatives from negative user feedback."
+    )
+    parser.add_argument(
+        "--lookback-hours", type=int, default=6, help="Lookback window in hours"
+    )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default="storage/private/evaluation/golden_dataset.json",
+        help="Path to golden dataset",
+    )
+    parser.add_argument(
+        "--mock-sample",
+        action="store_true",
+        help="Mine a mock negative interaction for testing",
+    )
 
     args = parser.parse_args()
 
     if args.mock_sample:
-        mock_interactions = [{
-            "id": str(uuid.uuid4()),
-            "raw_query": "What is the maximum carry-over for unused PTO in the London office under UK contract?",
-            "retrieved_chunk_ids": [],
-            "answer": "PTO is 20 days.",
-            "route_used": "SEMANTIC_SEARCH",
-            "created_at": datetime.datetime.now(datetime.timezone.utc),
-        }]
-        added = process_negative_interactions(mock_interactions, dataset_path=args.dataset)
+        mock_interactions = [
+            {
+                "id": str(uuid.uuid4()),
+                "raw_query": "What is the maximum carry-over for unused PTO in the London office under UK contract?",
+                "retrieved_chunk_ids": [],
+                "answer": "PTO is 20 days.",
+                "route_used": "SEMANTIC_SEARCH",
+                "created_at": datetime.datetime.now(datetime.timezone.utc),
+            }
+        ]
+        added = process_negative_interactions(
+            mock_interactions, dataset_path=args.dataset
+        )
         print(f"Mock mining run completed. New entries added: {added}")
         return 0
 
-    result = mine_hard_negatives(lookback_hours=args.lookback_hours, dataset_path=args.dataset)
+    result = mine_hard_negatives(
+        lookback_hours=args.lookback_hours, dataset_path=args.dataset
+    )
     print(f"Hard negative mining run completed: {result}")
     return 0
 

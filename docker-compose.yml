@@ -7,11 +7,14 @@ services:
       POSTGRES_USER: rag_user
       POSTGRES_PASSWORD: rag_password
       POSTGRES_DB: rag_db
+      RUNTIME_DB_PASSWORD: ${RUNTIME_DB_PASSWORD:-rag_runtime_dev_password}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - rag_postgres_data:/var/lib/postgresql/data
-      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/db/00_runtime_role.sh:/docker-entrypoint-initdb.d/00_runtime_role.sh:ro
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/db/zz_runtime_grants.sql:/docker-entrypoint-initdb.d/zz_runtime_grants.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rag_user -d rag_db"]
       interval: 5s
@@ -23,7 +26,7 @@ services:
     container_name: rag_redis
     restart: always
     ports:
-      - "6380:6379"
+      - "127.0.0.1:6380:6379"
     volumes:
       - rag_redis_data:/data
     healthcheck:
@@ -39,18 +42,21 @@ services:
     container_name: rag_backend
     restart: always
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
     environment:
       PROJECT_NAME: "Production RAG Engine"
-      DATABASE_URL: postgresql+asyncpg://rag_user:rag_password@postgres:5432/rag_db
+      DATABASE_URL: postgresql+asyncpg://rag_runtime:${RUNTIME_DB_PASSWORD:-rag_runtime_dev_password}@postgres:5432/rag_db
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: super_secret_jwt_key_change_in_production_2026
+      UPLOAD_DIR: /app/storage/uploads
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the ignored root .env}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
+    volumes:
+      - uploads:/app/storage/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,15 +72,18 @@ services:
     command: celery -A app.celery_app worker --loglevel=info -Q high_priority,low_priority --concurrency=4
     environment:
       PROJECT_NAME: "Production RAG Engine"
-      DATABASE_URL: postgresql+asyncpg://rag_user:rag_password@postgres:5432/rag_db
+      DATABASE_URL: postgresql+asyncpg://rag_runtime:${RUNTIME_DB_PASSWORD:-rag_runtime_dev_password}@postgres:5432/rag_db
       REDIS_URL: redis://redis:6379/0
-      JWT_SECRET: super_secret_jwt_key_change_in_production_2026
+      UPLOAD_DIR: /app/storage/uploads
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in the ignored root .env}
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 1440
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-gemini}
       LLM_MODEL: ${LLM_MODEL:-gemini-3.8-flash}
+    volumes:
+      - uploads:/app/storage/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,12 +95,13 @@ services:
     container_name: rag_jaeger
     restart: always
     ports:
-      - "16686:16686"   # Jaeger UI
-      - "4317:4317"     # OTLP gRPC receiver
-      - "4318:4318"     # OTLP HTTP receiver
+      - "127.0.0.1:16686:16686"   # Jaeger UI
+      - "127.0.0.1:4317:4317"     # OTLP gRPC receiver
+      - "127.0.0.1:4318:4318"     # OTLP HTTP receiver
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
 
 volumes:
+  uploads:
   rag_postgres_data:
   rag_redis_data:

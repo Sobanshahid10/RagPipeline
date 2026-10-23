@@ -7,12 +7,12 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 
 from app.config import settings
+from app.ingestion import embedder as embedding_module
 from app.ingestion.embedder import (
     compute_cache_key,
     embed_text,
     embed_batch,
-    _generate_fallback_embedding,
-    EMBEDDING_DIM
+    EMBEDDING_DIM,
 )
 from app.retrieval.vector_search import vector_search, _format_vector
 from app.retrieval.bm25_search import bm25_search
@@ -57,20 +57,15 @@ class MockRedisPipeline:
 
 
 @pytest.mark.asyncio
-async def test_compute_cache_key():
-    """Test 1: SHA-256 cache key generation is deterministic and prefixed."""
-    key1 = compute_cache_key("annual leave policy")
-    key2 = compute_cache_key("annual leave policy")
-    key3 = compute_cache_key("dental coverage policy")
-
-    assert key1.startswith("emb:")
-    assert len(key1) == 20  # "emb:" (4 chars) + 16 hex chars
-    assert key1 == key2
-    assert key1 != key3
+async def test_missing_embedding_provider_fails_closed():
+    with pytest.raises(RuntimeError, match="provider"):
+        compute_cache_key("passage")
 
 
 @pytest.mark.asyncio
-async def test_gemini_embedding_uses_current_model_and_requested_dimensions(monkeypatch):
+async def test_gemini_embedding_uses_current_model_and_requested_dimensions(
+    monkeypatch,
+):
     import httpx
     from app.config import settings
     from app.ingestion.embedder import _fetch_gemini_embeddings
@@ -81,21 +76,36 @@ async def test_gemini_embedding_uses_current_model_and_requested_dimensions(monk
         observed["url"] = str(request.url)
         observed["key"] = request.headers["x-goog-api-key"]
         observed["payload"] = json.loads(request.content)
-        return httpx.Response(200, json={"embeddings": [{"values": [0.0] * EMBEDDING_DIM}]})
+        return httpx.Response(
+            200, json={"embeddings": [{"values": [0.0] * EMBEDDING_DIM}]}
+        )
 
     real_client = httpx.AsyncClient
-    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(handler)),
+    )
     monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
     monkeypatch.setattr(settings, "EMBEDDING_MODEL", "gemini-embedding-2")
     vectors = await _fetch_gemini_embeddings(["A passage"])
     assert len(vectors[0]) == EMBEDDING_DIM
     assert observed["url"].endswith("/models/gemini-embedding-2:batchEmbedContents")
     assert observed["key"] == "test-key"
-    assert observed["payload"]["requests"][0]["embedContentConfig"]["outputDimensionality"] == EMBEDDING_DIM
+    assert (
+        observed["payload"]["requests"][0]["embedContentConfig"]["outputDimensionality"]
+        == EMBEDDING_DIM
+    )
 
 
 @pytest.mark.asyncio
-async def test_embed_text_fallback_and_caching():
+async def test_embed_text_provider_and_caching(monkeypatch):
+    monkeypatch.setattr(embedding_module.settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        embedding_module,
+        "_fetch_gemini_embeddings",
+        AsyncMock(side_effect=lambda texts: [[0.1] * EMBEDDING_DIM for _ in texts]),
+    )
     """Test 2: Single text embedding generation and Redis caching."""
     mock_redis = MockRedis()
     text = "Full-time employees receive 25 days of annual leave."
@@ -114,13 +124,19 @@ async def test_embed_text_fallback_and_caching():
 
 
 @pytest.mark.asyncio
-async def test_embed_batch_with_partial_cache():
+async def test_embed_batch_with_partial_cache(monkeypatch):
+    monkeypatch.setattr(embedding_module.settings, "GEMINI_API_KEY", "test-key")
+    monkeypatch.setattr(
+        embedding_module,
+        "_fetch_gemini_embeddings",
+        AsyncMock(side_effect=lambda texts: [[0.1] * EMBEDDING_DIM for _ in texts]),
+    )
     """Test 3: Batch embedding with partial cache hits and order preservation."""
     mock_redis = MockRedis()
     texts = [
         "Company health insurance coverage details.",
         "Remote work policy and guidelines.",
-        "Equipment reimbursement procedure."
+        "Equipment reimbursement procedure.",
     ]
 
     # Pre-populate cache for the 2nd text
@@ -154,15 +170,19 @@ async def test_vector_search_sql_execution():
             "content": "Annual leave policy allows 25 days of vacation.",
             "contextual_summary": "HR Policy",
             "page_number": 2,
-            "bounding_box": json.dumps({"xmin": 0.1, "ymin": 0.2, "xmax": 0.9, "ymax": 0.4}),
-            "similarity_score": 0.88452
+            "bounding_box": json.dumps(
+                {"xmin": 0.1, "ymin": 0.2, "xmax": 0.9, "ymax": 0.4}
+            ),
+            "similarity_score": 0.88452,
         }
     ]
 
     query_vec = [0.01] * EMBEDDING_DIM
     tenant_id = "00000000-0000-0000-0000-000000000001"
 
-    results = await vector_search(query_vec, tenant_id=tenant_id, top_k=5, db_conn=mock_conn)
+    results = await vector_search(
+        query_vec, tenant_id=tenant_id, top_k=5, db_conn=mock_conn
+    )
 
     assert len(results) == 1
     res = results[0]
@@ -172,7 +192,9 @@ async def test_vector_search_sql_execution():
     assert res["bounding_box"]["xmin"] == 0.1
 
     # Verify HNSW tune query was executed
-    mock_conn.execute.assert_called_once_with(f"SET hnsw.ef_search = {settings.HNSW_EF_SEARCH};")
+    mock_conn.execute.assert_called_once_with(
+        f"SET hnsw.ef_search = {settings.HNSW_EF_SEARCH};"
+    )
 
 
 @pytest.mark.asyncio
@@ -187,12 +209,14 @@ async def test_bm25_search_sql_execution():
             "contextual_summary": "Dental Benefits",
             "page_number": 4,
             "bounding_box": {"xmin": 0.05, "ymin": 0.1, "xmax": 0.85, "ymax": 0.3},
-            "bm25_score": 0.65219
+            "bm25_score": 0.65219,
         }
     ]
 
     tenant_id = "00000000-0000-0000-0000-000000000001"
-    results = await bm25_search("dental coverage", tenant_id=tenant_id, top_k=5, db_conn=mock_conn)
+    results = await bm25_search(
+        "dental coverage", tenant_id=tenant_id, top_k=5, db_conn=mock_conn
+    )
 
     assert len(results) == 1
     res = results[0]
@@ -213,7 +237,7 @@ async def test_hybrid_search_and_fusion_integration():
             "contextual_summary": "HR",
             "page_number": 1,
             "bounding_box": {},
-            "similarity_score": 0.89
+            "similarity_score": 0.89,
         },
         {
             "id": "doc-b",
@@ -222,8 +246,8 @@ async def test_hybrid_search_and_fusion_integration():
             "contextual_summary": "Health",
             "page_number": 2,
             "bounding_box": {},
-            "similarity_score": 0.72
-        }
+            "similarity_score": 0.72,
+        },
     ]
 
     bm25_mock_conn = AsyncMock()
@@ -235,7 +259,7 @@ async def test_hybrid_search_and_fusion_integration():
             "contextual_summary": "Health",
             "page_number": 2,
             "bounding_box": {},
-            "bm25_score": 0.75
+            "bm25_score": 0.75,
         },
         {
             "id": "doc-c",
@@ -244,13 +268,17 @@ async def test_hybrid_search_and_fusion_integration():
             "contextual_summary": "Travel",
             "page_number": 3,
             "bounding_box": {},
-            "bm25_score": 0.50
-        }
+            "bm25_score": 0.50,
+        },
     ]
 
     tenant_id = "00000000-0000-0000-0000-000000000001"
-    vec_results = await vector_search([0.1] * EMBEDDING_DIM, tenant_id=tenant_id, db_conn=vector_mock_conn)
-    bm25_results = await bm25_search("health insurance", tenant_id=tenant_id, db_conn=bm25_mock_conn)
+    vec_results = await vector_search(
+        [0.1] * EMBEDDING_DIM, tenant_id=tenant_id, db_conn=vector_mock_conn
+    )
+    bm25_results = await bm25_search(
+        "health insurance", tenant_id=tenant_id, db_conn=bm25_mock_conn
+    )
 
     # Fuse with RRF
     fused = reciprocal_rank_fusion(bm25_results, vec_results, k=60, top_n=3)

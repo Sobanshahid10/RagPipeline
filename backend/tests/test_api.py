@@ -19,27 +19,22 @@ async def test_system_info_endpoint():
 
 @pytest.mark.asyncio
 async def test_invalid_uuid_handling_in_documents():
-    from app.api.documents import get_document_status, get_document_file, list_documents
-    from fastapi import HTTPException
+    from app.main import app
+    from app.core.dependencies import get_current_user
+    from types import SimpleNamespace
+    from httpx import AsyncClient, ASGITransport
 
-    # Test get_document_status with non-UUID
-    with pytest.raises(HTTPException) as exc_info:
-        await get_document_status("pubbook-fee51ebe1fd3d0d1")
-    assert exc_info.value.status_code == 404
-
-    # Test get_document_file with non-UUID
-    with pytest.raises(HTTPException) as exc_info:
-        await get_document_file("not-a-valid-uuid")
-    assert exc_info.value.status_code == 404
-
-    # Test list_documents with invalid tenant_id
-    with pytest.raises(HTTPException) as exc_info:
-        await list_documents(tenant_id="invalid-tenant-uuid")
-    assert exc_info.value.status_code == 400
-
-    # Test delete_document with non-UUID
-    from app.api.documents import delete_document
-    with pytest.raises(HTTPException) as exc_info:
-        await delete_document("not-a-valid-uuid")
-    assert exc_info.value.status_code == 404
-
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        tenant_id="tenant"
+    )
+    try:
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            for suffix in ("", "/file"):
+                response = await client.get(
+                    "/api/v1/documents/pubbook-not-a-document" + suffix
+                )
+                assert response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()

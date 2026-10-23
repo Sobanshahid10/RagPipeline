@@ -1,53 +1,29 @@
-"""
-Document Management API Router.
+"""Authenticated, tenant-scoped document lifecycle."""
 
-Provides endpoints for document upload (with SHA-256 deduplication and async task queuing)
-and ingestion status polling.
-"""
+from __future__ import annotations
 
-import os
+import asyncio
 import hashlib
-import uuid
+import json
 import logging
-from typing import Optional, List
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, status, Request
+import uuid
+import zipfile
+from pathlib import Path
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import asyncpg
 
 from app.config import settings
+from app.core.dependencies import get_current_user, require_writer
+from app.db.tenant import tenant_connection
 from app.ingestion.pipeline import process_document
+from app.models.user import User
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix=f"{settings.API_V1_STR}/documents", tags=["Documents"])
-
-UPLOAD_DIR = os.path.join(os.getcwd(), "storage", "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-
-def _get_raw_db_url(url: str) -> str:
-    """Convert asyncpg URL to standard PostgreSQL connection URL."""
-    if url.startswith("postgresql+asyncpg://"):
-        return url.replace("postgresql+asyncpg://", "postgresql://")
-    return url
-
-
-def _extract_tenant_from_request(request: Optional[Request]) -> Optional[str]:
-    """Extract tenant_id from the Authorization Bearer JWT if present."""
-    if not request:
-        return None
-    auth_header = request.headers.get("Authorization") or request.headers.get("authorization")
-    if not auth_header:
-        return None
-    parts = auth_header.split()
-    if len(parts) == 2 and parts[0].lower() == "bearer":
-        try:
-            from app.core.security import decode_access_token
-            payload = decode_access_token(parts[1])
-            return payload.get("tenant_id")
-        except Exception:
-            return None
-    return None
+UPLOAD_DIR = Path(settings.UPLOAD_DIR).resolve()
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class DocumentUploadResponse(BaseModel):
@@ -67,332 +43,318 @@ class DocumentStatusResponse(BaseModel):
     chunk_count: int
     created_at: str
     updated_at: str
+    stage: str | None = None
+    error: str | None = None
+    graph_status: str | None = None
+    stalled: bool = False
 
 
-@router.post("/upload", response_model=DocumentUploadResponse, status_code=status.HTTP_202_ACCEPTED)
-async def upload_document(
-    request: Request = None,
-    file: UploadFile = File(...),
-    tenant_id: Optional[str] = Form(None)
-):
-    """
-    Upload a document (PDF, DOCX, TXT) for asynchronous layout-aware vision parsing and indexing.
+SELECT_DOCUMENTS = """
+SELECT d.*, (SELECT count(*) FROM chunks c WHERE c.document_id=d.id AND c.tenant_id=d.tenant_id) AS chunk_count,
+       (d.status IN ('pending','processing') AND d.updated_at < NOW() - INTERVAL '20 minutes') AS stalled
+FROM documents d
+"""
 
-    - Computes SHA-256 digest for deduplication.
-    - Resolves tenant ID via Form parameter, Authorization JWT token, or system default tenant.
-    - Persists file to local volume storage.
-    - Creates database record in 'pending' status.
-    - Dispatches asynchronous Celery task.
-    - Returns immediately with 202 Accepted status.
-    """
-    # If explicit tenant_id provided, validate UUID format
-    if tenant_id:
-        try:
-            uuid.UUID(tenant_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid tenant_id format: {tenant_id}"
-            )
 
-    # Read content to compute SHA-256 hash
-    content_bytes = await file.read()
-    if not content_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Uploaded file is empty."
-        )
+def _status(row):
+    metadata = row.get("metadata") or {}
+    if isinstance(metadata, str):
+        metadata = json.loads(metadata)
+    return DocumentStatusResponse(
+        document_id=str(row["id"]),
+        filename=row["filename"],
+        file_type=row["file_type"],
+        status=row["status"],
+        total_pages=row["total_pages"] or 0,
+        chunk_count=row["chunk_count"] or 0,
+        created_at=row["created_at"].isoformat(),
+        updated_at=row["updated_at"].isoformat(),
+        stage=metadata.get("stage"),
+        error=metadata.get("error"),
+        graph_status=metadata.get("graph_status"),
+        stalled=row["stalled"],
+    )
 
-    doc_hash = hashlib.sha256(content_bytes).hexdigest()
-    file_ext = os.path.splitext(file.filename)[1].lower().lstrip(".") or "txt"
 
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
+def _storage_path(storage_uri: str) -> Path:
+    path = Path(storage_uri).resolve()
+    if not path.is_relative_to(UPLOAD_DIR):
+        raise HTTPException(404, "Document file unavailable")
+    return path
+
+
+async def _audit(conn, user, document_id, action):
+    await conn.execute(
+        "INSERT INTO document_audit_events(tenant_id,user_id,document_id,action) VALUES($1,$2,$3,$4)",
+        user.tenant_id,
+        user.id,
+        document_id,
+        action,
+    )
+
+
+async def _dispatch(document_id: str, tenant_id: str, path: str, job_id: str):
     try:
-        # Resolve tenant ID: Form -> JWT Token -> First DB Tenant -> Auto-created Default
-        resolved_tenant_id = tenant_id or _extract_tenant_from_request(request)
-        t_row = None
-        if resolved_tenant_id:
-            try:
-                uuid.UUID(str(resolved_tenant_id))
-                t_row = await conn.fetchrow("SELECT id FROM tenants WHERE id = $1::uuid", str(resolved_tenant_id))
-            except Exception:
-                t_row = None
-
-        if not t_row:
-            # Fallback to the first existing tenant in the database
-            t_row = await conn.fetchrow("SELECT id FROM tenants ORDER BY created_at ASC LIMIT 1")
-            if not t_row:
-                # Create a default workspace tenant if database has none
-                default_id = str(uuid.uuid4())
-                await conn.execute(
-                    "INSERT INTO tenants (id, name, slug, created_at, updated_at) VALUES ($1::uuid, $2, $3, NOW(), NOW())",
-                    default_id, "Default Workspace", "default-workspace"
-                )
-                t_id = default_id
-            else:
-                t_id = str(t_row["id"])
-        else:
-            t_id = str(t_row["id"])
-
-        # Check for existing document with same SHA-256 hash
-        existing = await conn.fetchrow(
-            "SELECT id, filename, status FROM documents WHERE doc_hash = $1",
-            doc_hash
+        await asyncio.to_thread(
+            process_document.delay, document_id, tenant_id, path, job_id
         )
-        if existing:
-            if existing["status"] == "failed":
-                # Clear out previously failed document attempt so it can be reprocessed cleanly
-                await conn.execute("DELETE FROM documents WHERE id = $1", existing["id"])
-            else:
+    except Exception:
+        logger.warning("Document queue dispatch failed for %s", document_id)
+        async with tenant_connection(tenant_id) as conn:
+            await conn.execute(
+                """UPDATE documents SET status='failed', updated_at=NOW(),
+                metadata=metadata || '{"stage":"dispatch","error":"Queue unavailable; retry this document."}'::jsonb
+                WHERE id=$1 AND tenant_id=$2::uuid AND status='pending'
+                AND metadata->>'job_id'=$3""",
+                uuid.UUID(document_id),
+                tenant_id,
+                job_id,
+            )
+        raise HTTPException(
+            503,
+            "Upload saved, but the worker queue is unavailable. Retry from Documents.",
+        )
+
+
+def _validate_content(destination: Path, extension: str):
+    if extension == "pdf":
+        with destination.open("rb") as source:
+            if not source.read(1024).lstrip().startswith(b"%PDF-"):
+                raise HTTPException(415, "Invalid PDF content")
+        from pypdf import PdfReader
+
+        reader = PdfReader(destination)
+        if reader.is_encrypted or len(reader.pages) > settings.MAX_DOCUMENT_PAGES:
+            raise HTTPException(422, "PDF is encrypted or exceeds the page limit")
+    elif extension == "docx":
+        with zipfile.ZipFile(destination) as archive:
+            entries = archive.infolist()
+            if (
+                len(entries) > 2000
+                or sum(e.file_size for e in entries) > settings.MAX_EXPANDED_BYTES
+                or any(e.flag_bits & 1 for e in entries)
+                or "word/document.xml" not in archive.namelist()
+            ):
+                raise HTTPException(422, "DOCX exceeds expansion limits or is invalid")
+    else:
+        data = destination.read_bytes()
+        if b"\x00" in data:
+            raise HTTPException(415, "TXT must contain UTF-8 text")
+        data.decode("utf-8")
+
+
+async def _validate_upload(file: UploadFile, destination: Path, extension: str):
+    size = 0
+    try:
+        with destination.open("xb") as output:
+            while data := await file.read(1024 * 1024):
+                size += len(data)
+                if size > settings.MAX_UPLOAD_BYTES:
+                    raise HTTPException(413, "Document exceeds the upload size limit")
+                output.write(data)
+        if not size:
+            raise HTTPException(400, "Uploaded file is empty")
+        await asyncio.to_thread(_validate_content, destination, extension)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(415, "Invalid or unsupported document content")
+    return size
+
+
+@router.post("/upload", response_model=DocumentUploadResponse, status_code=202)
+async def upload_document(
+    file: UploadFile = File(...), current_user: User = Depends(require_writer)
+):
+    tenant_id = str(current_user.tenant_id)
+    filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1][:240]
+    extension = Path(filename).suffix.lower().lstrip(".")
+    if extension not in {"pdf", "docx", "txt"}:
+        raise HTTPException(415, "Supported document types: PDF, DOCX, TXT")
+    doc_id = uuid.uuid4()
+    job_id = str(uuid.uuid4())
+    destination = UPLOAD_DIR / f"{doc_id}.{extension}"
+    retained = False
+    try:
+        size = await _validate_upload(file, destination, extension)
+
+        def hash_file():
+            with destination.open("rb") as source:
+                return hashlib.file_digest(source, "sha256").hexdigest()
+
+        digest = await asyncio.to_thread(hash_file)
+        async with tenant_connection(tenant_id) as conn:
+            # Serialize quota and duplicate checks for concurrent workspace uploads.
+            await conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))", tenant_id
+            )
+            existing = await conn.fetchrow(
+                "SELECT * FROM documents WHERE tenant_id=$1::uuid AND doc_hash=$2",
+                tenant_id,
+                digest,
+            )
+            if existing:
                 return DocumentUploadResponse(
                     document_id=str(existing["id"]),
                     filename=existing["filename"],
                     status=existing["status"],
-                    doc_hash=doc_hash,
-                    message=f"Document already exists and is {existing['status']}."
+                    doc_hash=digest,
+                    message="Document already exists; retry it if processing failed.",
                 )
-
-        doc_id = str(uuid.uuid4())
-        saved_filename = f"{doc_id}_{file.filename}"
-        saved_file_path = os.path.join(UPLOAD_DIR, saved_filename)
-
-        # Save to disk
-        with open(saved_file_path, "wb") as f:
-            f.write(content_bytes)
-
-        # Insert metadata record into PostgreSQL
-        await conn.execute(
-            """
-            INSERT INTO documents (
-                id, tenant_id, filename, file_type, doc_hash, storage_uri, status, created_at, updated_at
-            ) VALUES (
-                $1::uuid, $2::uuid, $3, $4, $5, $6, 'pending', NOW(), NOW()
+            usage = await conn.fetchval(
+                "SELECT COALESCE(SUM((metadata->>'size_bytes')::bigint),0) FROM documents WHERE tenant_id=$1::uuid",
+                tenant_id,
             )
-            """,
-            doc_id, t_id, file.filename, file_ext, doc_hash, saved_file_path
-        )
-
-        # Dispatch Celery background task
-        try:
-            process_document.delay(doc_id, t_id, saved_file_path)
-        except Exception as queue_err:
-            logger.warning(f"Failed to enqueue Celery task: {queue_err}. Task will need manual dispatch.")
-
+            if usage + size > settings.MAX_TENANT_STORAGE_BYTES:
+                raise HTTPException(413, "Workspace storage limit reached")
+            await conn.execute(
+                """INSERT INTO documents(id,tenant_id,filename,file_type,doc_hash,storage_uri,status,metadata)
+                VALUES($1,$2::uuid,$3,$4,$5,$6,'pending',$7::jsonb)""",
+                doc_id,
+                tenant_id,
+                filename,
+                extension,
+                digest,
+                str(destination),
+                json.dumps({"stage": "queued", "size_bytes": size, "job_id": job_id}),
+            )
+            await _audit(conn, current_user, doc_id, "upload")
+            # Preserve the original if cancellation makes the commit outcome uncertain.
+            # An orphan is recoverable; a committed row with a deleted original is not.
+            retained = True
+        await _dispatch(str(doc_id), tenant_id, str(destination), job_id)
         return DocumentUploadResponse(
-            document_id=doc_id,
-            filename=file.filename,
-            status="processing",
-            doc_hash=doc_hash,
-            message="Document accepted and queued for background ingestion."
+            document_id=str(doc_id),
+            filename=filename,
+            status="pending",
+            doc_hash=digest,
+            message="Upload received and queued; indexing is not complete.",
         )
-
     finally:
-        await conn.close()
+        await file.close()
+        if not retained:
+            destination.unlink(missing_ok=True)
 
 
-@router.get("", response_model=List[DocumentStatusResponse])
-async def list_documents(
-    request: Request = None,
-    tenant_id: Optional[str] = None
-):
-    """
-    List all uploaded documents with status and chunk counts.
-    """
-    target_tenant_id = tenant_id
-    if not target_tenant_id and request:
-        target_tenant_id = _extract_tenant_from_request(request)
-
-    if target_tenant_id:
-        try:
-            uuid.UUID(target_tenant_id)
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid tenant_id format: {target_tenant_id}"
-            )
-
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
-        query = """
-            SELECT d.id, d.filename, d.file_type, d.status, d.total_pages, d.created_at, d.updated_at,
-                   COUNT(c.id) AS chunk_count
-            FROM documents d
-            LEFT JOIN chunks c ON d.id = c.document_id
-        """
-        params = []
-        if target_tenant_id:
-            query += " WHERE d.tenant_id = $1::uuid"
-            params.append(target_tenant_id)
-        query += " GROUP BY d.id ORDER BY d.created_at DESC"
-
-        docs = await conn.fetch(query, *params)
-        return [
-            DocumentStatusResponse(
-                document_id=str(doc["id"]),
-                filename=doc["filename"],
-                file_type=doc["file_type"],
-                status=doc["status"],
-                total_pages=doc["total_pages"] or 0,
-                chunk_count=doc["chunk_count"] or 0,
-                created_at=doc["created_at"].isoformat(),
-                updated_at=doc["updated_at"].isoformat()
-            )
-            for doc in docs
-        ]
-
-    finally:
-        await conn.close()
+@router.get("", response_model=list[DocumentStatusResponse])
+async def list_documents(current_user: User = Depends(get_current_user)):
+    async with tenant_connection(str(current_user.tenant_id)) as conn:
+        rows = await conn.fetch(
+            SELECT_DOCUMENTS + " WHERE d.tenant_id=$1 ORDER BY d.created_at DESC",
+            current_user.tenant_id,
+        )
+    return [_status(row) for row in rows]
 
 
 @router.get("/{document_id}", response_model=DocumentStatusResponse)
-async def get_document_status(document_id: str):
-    """
-    Query the processing status and chunk statistics for an uploaded document.
-    """
-    try:
-        uuid.UUID(document_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID {document_id} not found."
+async def get_document_status(
+    document_id: uuid.UUID, current_user: User = Depends(get_current_user)
+):
+    async with tenant_connection(str(current_user.tenant_id)) as conn:
+        row = await conn.fetchrow(
+            SELECT_DOCUMENTS + " WHERE d.id=$1 AND d.tenant_id=$2",
+            document_id,
+            current_user.tenant_id,
         )
-
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
-        doc = await conn.fetchrow(
-            """
-            SELECT d.id, d.filename, d.file_type, d.status, d.total_pages, d.created_at, d.updated_at,
-                   COUNT(c.id) AS chunk_count
-            FROM documents d
-            LEFT JOIN chunks c ON d.id = c.document_id
-            WHERE d.id = $1::uuid
-            GROUP BY d.id
-            """,
-            document_id
-        )
-
-        if not doc:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found."
-            )
-
-        return DocumentStatusResponse(
-            document_id=str(doc["id"]),
-            filename=doc["filename"],
-            file_type=doc["file_type"],
-            status=doc["status"],
-            total_pages=doc["total_pages"] or 0,
-            chunk_count=doc["chunk_count"] or 0,
-            created_at=doc["created_at"].isoformat(),
-            updated_at=doc["updated_at"].isoformat()
-        )
-
-    finally:
-        await conn.close()
+    if not row:
+        raise HTTPException(404, "Document not found")
+    return _status(row)
 
 
 @router.get("/{document_id}/file")
-async def get_document_file(document_id: str):
-    """
-    Serve the raw document file (e.g. PDF) for client-side rendering in PDFViewer.
-    """
-    from fastapi.responses import FileResponse
-
-    try:
-        uuid.UUID(document_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID {document_id} not found."
+async def get_document_file(
+    document_id: uuid.UUID, current_user: User = Depends(get_current_user)
+):
+    async with tenant_connection(str(current_user.tenant_id)) as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM documents WHERE id=$1 AND tenant_id=$2",
+            document_id,
+            current_user.tenant_id,
         )
+    if not row:
+        raise HTTPException(404, "Document not found")
+    path = _storage_path(row["storage_uri"])
+    if not path.is_file():
+        raise HTTPException(404, "Document file unavailable")
+    return FileResponse(
+        path,
+        filename=row["filename"],
+        media_type="application/pdf"
+        if row["file_type"] == "pdf"
+        else "application/octet-stream",
+        headers={"Cache-Control": "private, no-store"},
+    )
 
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
-        doc = await conn.fetchrow(
-            "SELECT storage_uri, filename, file_type FROM documents WHERE id = $1::uuid",
-            document_id
+
+@router.post("/{document_id}/retry", status_code=202)
+async def retry_document(
+    document_id: uuid.UUID, current_user: User = Depends(require_writer)
+):
+    tenant_id = str(current_user.tenant_id)
+    job_id = str(uuid.uuid4())
+    async with tenant_connection(tenant_id) as conn:
+        locked = await conn.fetchval(
+            "SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))", str(document_id)
         )
-        if not doc:
+        if not locked:
+            raise HTTPException(409, "Document is still processing")
+        row = await conn.fetchrow(
+            SELECT_DOCUMENTS + " WHERE d.id=$1 AND d.tenant_id=$2 FOR UPDATE OF d",
+            document_id,
+            current_user.tenant_id,
+        )
+        if not row:
+            raise HTTPException(404, "Document not found")
+        if row["status"] not in ("failed", "indexed") and not row["stalled"]:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found."
+                409,
+                "Only failed, stalled or indexed documents can be queued for retry or reindexing",
             )
-
-        file_path = doc["storage_uri"]
-        if not os.path.exists(file_path):
+        path = _storage_path(row["storage_uri"])
+        if not path.is_file():
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document file not found on disk."
+                409, "Original file unavailable; upload the document again"
             )
-
-        media_type = "application/pdf" if doc["file_type"] == "pdf" else "application/octet-stream"
-        return FileResponse(
-            file_path,
-            media_type=media_type,
-            filename=doc["filename"]
+        await conn.execute(
+            "UPDATE documents SET status='pending', updated_at=NOW(), metadata=(metadata - 'error') || $3::jsonb WHERE id=$1 AND tenant_id=$2",
+            document_id,
+            current_user.tenant_id,
+            json.dumps({"stage": "queued", "job_id": job_id}),
         )
-    finally:
-        await conn.close()
+        await _audit(conn, current_user, document_id, "retry")
+    await _dispatch(str(document_id), tenant_id, str(path), job_id)
+    return {"document_id": str(document_id), "status": "pending"}
 
 
 @router.delete("/{document_id}")
 async def delete_document(
-    document_id: str,
-    request: Request = None
+    document_id: uuid.UUID, current_user: User = Depends(require_writer)
 ):
-    """
-    Permanently delete a document, its file on disk, and cascading chunks & entity triples.
-    """
-    try:
-        uuid.UUID(document_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Document with ID {document_id} not found."
+    async with tenant_connection(str(current_user.tenant_id)) as conn:
+        locked = await conn.fetchval(
+            "SELECT pg_try_advisory_xact_lock(hashtextextended($1,0))", str(document_id)
         )
-
-    target_tenant_id = None
-    if request:
-        target_tenant_id = _extract_tenant_from_request(request)
-
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
-        if target_tenant_id:
-            doc = await conn.fetchrow(
-                "SELECT id, filename, storage_uri FROM documents WHERE id = $1::uuid AND tenant_id = $2::uuid",
-                document_id, target_tenant_id
-            )
-        else:
-            doc = await conn.fetchrow(
-                "SELECT id, filename, storage_uri FROM documents WHERE id = $1::uuid",
-                document_id
-            )
-
-        if not doc:
+        if not locked:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document with ID {document_id} not found."
+                409, "Document is processing; retry deletion after it finishes"
             )
-
-        # Remove file from disk if present
-        file_path = doc["storage_uri"]
-        if file_path and os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except OSError as err:
-                logger.warning(f"Could not remove disk file {file_path}: {err}")
-
-        # Delete database row (chunks and entity_triples CASCADE)
-        await conn.execute("DELETE FROM documents WHERE id = $1::uuid", document_id)
-
-        return {
-            "status": "deleted",
-            "document_id": document_id,
-            "filename": doc["filename"],
-            "message": f"Document '{doc['filename']}' successfully removed."
-        }
-    finally:
-        await conn.close()
-
-
+        row = await conn.fetchrow(
+            "DELETE FROM documents WHERE id=$1 AND tenant_id=$2 RETURNING *",
+            document_id,
+            current_user.tenant_id,
+        )
+        if not row:
+            raise HTTPException(404, "Document not found")
+        path = _storage_path(row["storage_uri"])
+        await _audit(conn, current_user, document_id, "delete")
+    # Never destroy the original before the database commit has succeeded.
+    # A failed cleanup leaves an inaccessible orphan, rather than losing a live file.
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:
+        logger.exception("Deleted document %s requires storage cleanup", document_id)
+    return {
+        "status": "deleted",
+        "document_id": str(document_id),
+        "filename": row["filename"],
+    }

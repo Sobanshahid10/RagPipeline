@@ -16,7 +16,9 @@ import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends
 
 from app.config import settings
-from app.core.dependencies import get_current_user
+from app.core.dependencies import get_current_user, require_admin
+from app.db.tenant import tenant_connection
+import asyncio
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -24,6 +26,7 @@ router = APIRouter(prefix=f"{settings.API_V1_STR}/admin", tags=["Admin"])
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def _raw_db_url(url: str) -> str:
     return url.replace("postgresql+asyncpg://", "postgresql://", 1)
@@ -35,14 +38,14 @@ async def _db_conn() -> asyncpg.Connection:
 
 # ── endpoints ─────────────────────────────────────────────────────────────────
 
+
 @router.get("/stats")
 async def get_admin_stats(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ) -> dict[str, Any]:
     """Return aggregated query metrics for the last 24 h for the current tenant."""
     tenant_id = str(current_user.tenant_id)
-    conn = await _db_conn()
-    try:
+    async with tenant_connection(tenant_id) as conn:
         row = await conn.fetchrow(
             """
             SELECT
@@ -69,7 +72,7 @@ async def get_admin_stats(
                     0
                 )                                                                  AS thumbs_up_rate,
                 COUNT(CASE WHEN route_used = 'MULTI_HOP_GRAPH' THEN 1 END)        AS graph_route_count,
-                COUNT(CASE WHEN route_used = 'FACTUAL_VECTOR' THEN 1 END)         AS vector_route_count,
+                COUNT(CASE WHEN route_used IN ('FACTUAL_VECTOR','HYBRID') THEN 1 END)         AS vector_route_count,
                 COUNT(CASE WHEN route_used = 'ANALYTICAL_SQL' THEN 1 END)         AS sql_route_count,
                 COUNT(CASE WHEN route_used = 'GREETING_DIRECT' THEN 1 END)        AS direct_route_count
             FROM query_interactions
@@ -78,8 +81,6 @@ async def get_admin_stats(
             """,
             tenant_id,
         )
-    finally:
-        await conn.close()
 
     return {
         "total_queries_24h": int(row["total_queries_24h"] or 0),
@@ -102,12 +103,11 @@ async def get_admin_stats(
 @router.get("/recent_queries")
 async def get_recent_queries(
     limit: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_admin),
 ) -> list[dict[str, Any]]:
     """Return the most recent query interactions for the current tenant."""
     tenant_id = str(current_user.tenant_id)
-    conn = await _db_conn()
-    try:
+    async with tenant_connection(tenant_id) as conn:
         rows = await conn.fetch(
             """
             SELECT
@@ -126,10 +126,8 @@ async def get_recent_queries(
             LIMIT $2
             """,
             tenant_id,
-            min(limit, 100),
+            max(1, min(limit, 100)),
         )
-    finally:
-        await conn.close()
 
     return [
         {
@@ -148,8 +146,8 @@ async def get_recent_queries(
 
 
 @router.get("/health")
-async def system_health() -> dict[str, Any]:
-    """Check Postgres, Redis, and Celery broker liveness (no auth required)."""
+async def system_health(current_user: User = Depends(require_admin)) -> dict[str, Any]:
+    """Check Postgres, Redis, and Celery workers for workspace administrators."""
     results: dict[str, Any] = {}
 
     # ── Postgres ──────────────────────────────────────────────────────────
@@ -160,7 +158,7 @@ async def system_health() -> dict[str, Any]:
         results["postgres"] = {"status": "healthy"}
     except Exception as exc:
         logger.warning("Postgres health check failed: %s", exc)
-        results["postgres"] = {"status": "unhealthy", "error": str(exc)}
+        results["postgres"] = {"status": "unhealthy", "error": "Service unavailable"}
 
     # ── Redis ─────────────────────────────────────────────────────────────
     try:
@@ -170,14 +168,14 @@ async def system_health() -> dict[str, Any]:
         results["redis"] = {"status": "healthy"}
     except Exception as exc:
         logger.warning("Redis health check failed: %s", exc)
-        results["redis"] = {"status": "unhealthy", "error": str(exc)}
+        results["redis"] = {"status": "unhealthy", "error": "Service unavailable"}
 
     # ── Celery (broker reachability) ──────────────────────────────────────
     try:
         from app.celery_app import celery_app
 
         inspect = celery_app.control.inspect(timeout=2.0)
-        stats = inspect.stats()  # type: ignore[union-attr]
+        stats = await asyncio.to_thread(inspect.stats)  # type: ignore[union-attr]
         worker_count = len(stats) if stats else 0
         results["celery"] = {
             "status": "healthy" if worker_count > 0 else "no_workers",
@@ -185,7 +183,17 @@ async def system_health() -> dict[str, Any]:
         }
     except Exception as exc:
         logger.warning("Celery health check failed: %s", exc)
-        results["celery"] = {"status": "unhealthy", "error": str(exc)}
+        results["celery"] = {"status": "unhealthy", "error": "Service unavailable"}
 
-    overall = all(v.get("status") in ("healthy", "no_workers") for v in results.values())
+    overall = all(v.get("status") == "healthy" for v in results.values())
     return {"overall": "healthy" if overall else "degraded", "services": results}
+
+
+@router.get("/document_audit")
+async def document_audit(current_user: User = Depends(require_admin)):
+    async with tenant_connection(str(current_user.tenant_id)) as conn:
+        rows = await conn.fetch(
+            "SELECT id,user_id,document_id,action,created_at FROM document_audit_events WHERE tenant_id=$1 ORDER BY created_at DESC LIMIT 100",
+            current_user.tenant_id,
+        )
+    return [dict(row) for row in rows]

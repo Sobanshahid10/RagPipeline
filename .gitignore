@@ -71,3 +71,6 @@ evaluation_test_run*.json
 *.tsbuildinfo
 next-env.d.ts
 docs/
+
+# TLS private keys and certificates are deployment-owned
+nginx/certs/

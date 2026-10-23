@@ -44,7 +44,13 @@ def test_golden_dataset_structure_and_distribution():
     # 1. Total count check
     assert len(dataset) >= 200, f"Dataset has {len(dataset)} items, expected >= 200"
 
-    expected_categories = {"HR_Policy", "Technical_Docs", "Financial_Reports", "Legal_Contracts", "Onboarding"}
+    expected_categories = {
+        "HR_Policy",
+        "Technical_Docs",
+        "Financial_Reports",
+        "Legal_Contracts",
+        "Onboarding",
+    }
     expected_difficulties = {"easy", "medium", "hard"}
 
     difficulty_counts = {"easy": 0, "medium": 0, "hard": 0}
@@ -55,9 +61,15 @@ def test_golden_dataset_structure_and_distribution():
         assert "id" in item and item["id"].startswith("eval_")
         assert "query" in item and len(item["query"].strip()) > 10
         assert "ground_truth" in item and len(item["ground_truth"].strip()) > 10
-        assert "relevant_chunk_ids" in item and isinstance(item["relevant_chunk_ids"], list)
-        assert item["category"] in expected_categories, f"Invalid category: {item['category']}"
-        assert item["difficulty"] in expected_difficulties, f"Invalid difficulty: {item['difficulty']}"
+        assert "relevant_chunk_ids" in item and isinstance(
+            item["relevant_chunk_ids"], list
+        )
+        assert item["category"] in expected_categories, (
+            f"Invalid category: {item['category']}"
+        )
+        assert item["difficulty"] in expected_difficulties, (
+            f"Invalid difficulty: {item['difficulty']}"
+        )
 
         difficulty_counts[item["difficulty"]] += 1
         category_counts[item["category"]] += 1
@@ -72,9 +84,15 @@ def test_golden_dataset_structure_and_distribution():
     med_pct = difficulty_counts["medium"] / total
     hard_pct = difficulty_counts["hard"] / total
 
-    assert 0.35 <= easy_pct <= 0.45, f"Easy percentage {easy_pct:.2f} out of target ~0.40"
-    assert 0.35 <= med_pct <= 0.45, f"Medium percentage {med_pct:.2f} out of target ~0.40"
-    assert 0.15 <= hard_pct <= 0.25, f"Hard percentage {hard_pct:.2f} out of target ~0.20"
+    assert 0.35 <= easy_pct <= 0.45, (
+        f"Easy percentage {easy_pct:.2f} out of target ~0.40"
+    )
+    assert 0.35 <= med_pct <= 0.45, (
+        f"Medium percentage {med_pct:.2f} out of target ~0.40"
+    )
+    assert 0.15 <= hard_pct <= 0.25, (
+        f"Hard percentage {hard_pct:.2f} out of target ~0.20"
+    )
 
 
 def test_assert_thresholds_logic_and_metrics():
@@ -90,7 +108,9 @@ def test_assert_thresholds_logic_and_metrics():
     assert ttft <= 500.0, f"Expected max_ttft_ms <= 500, got {ttft}"
 
     # Check citation_parse_success_rate
-    rate = compute_metric_value("citation_parse_success_rate", dataset_path=dataset_path)
+    rate = compute_metric_value(
+        "citation_parse_success_rate", dataset_path=dataset_path
+    )
     assert rate >= 0.95, f"Expected citation rate >= 0.95, got {rate}"
 
     # Check custom results file reading
@@ -112,22 +132,37 @@ def test_hard_negative_miner_processing_and_llm_diagnosis():
     """Test 3: Validate negative interaction mining, classification, and dataset appending."""
     # Test category deduction
     assert deduce_category_from_query("What is the PTO carryover?") == "HR_Policy"
-    assert deduce_category_from_query("What was Q3 EBITDA margin?") == "Financial_Reports"
-    assert deduce_category_from_query("What is the indemnification liability cap?") == "Legal_Contracts"
-    assert deduce_category_from_query("How do new hires configure YubiKey SSO?") == "Onboarding"
+    assert (
+        deduce_category_from_query("What was Q3 EBITDA margin?") == "Financial_Reports"
+    )
+    assert (
+        deduce_category_from_query("What is the indemnification liability cap?")
+        == "Legal_Contracts"
+    )
+    assert (
+        deduce_category_from_query("How do new hires configure YubiKey SSO?")
+        == "Onboarding"
+    )
 
     # Test LLM diagnosis heuristic fallback
     diagnosis = analyze_with_llm(
         raw_query="What is the bereavement policy?",
         chunk_excerpts="No relevant chunks found.",
-        answer="I do not have access to that information."
+        answer="I do not have access to that information.",
     )
-    assert diagnosis["failure_mode"] in {"retrieval_fail", "hallucination", "context_loss", "wrong_route"}
+    assert diagnosis["failure_mode"] in {
+        "retrieval_fail",
+        "hallucination",
+        "context_loss",
+        "wrong_route",
+    }
     assert len(diagnosis["correct_answer"]) > 0
 
     # Test dataset appending with a temporary test file
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as tf:
-        json.dump([{"id": "eval_001", "query": "Existing query", "ground_truth": "GT"}], tf)
+        json.dump(
+            [{"id": "eval_001", "query": "Existing query", "ground_truth": "GT"}], tf
+        )
         temp_dataset_path = tf.name
 
     try:
@@ -146,10 +181,12 @@ def test_hard_negative_miner_processing_and_llm_diagnosis():
                 "retrieved_chunk_ids": [],
                 "answer": "Dup answer.",
                 "route_used": "DIRECT_LLM",
-            }
+            },
         ]
 
-        added = process_negative_interactions(mock_interactions, dataset_path=temp_dataset_path)
+        added = process_negative_interactions(
+            mock_interactions, dataset_path=temp_dataset_path
+        )
         assert added == 1, f"Expected 1 new entry added, got {added}"
 
         with open(temp_dataset_path, "r", encoding="utf-8") as f:
@@ -193,13 +230,15 @@ def test_ragas_runner_sse_parsing_and_mock_eval():
     assert len(mock_ans) > 0
     assert len(mock_ctx) > 0
 
-    eval_items = [{
-        "id": sample["id"],
-        "question": sample["query"],
-        "ground_truth": sample["ground_truth"],
-        "answer": mock_ans,
-        "contexts": mock_ctx,
-    }]
+    eval_items = [
+        {
+            "id": sample["id"],
+            "question": sample["query"],
+            "ground_truth": sample["ground_truth"],
+            "answer": mock_ans,
+            "contexts": mock_ctx,
+        }
+    ]
 
     metrics = compute_eval_metrics(eval_items)
     assert "faithfulness" in metrics
@@ -210,12 +249,8 @@ def test_ragas_runner_sse_parsing_and_mock_eval():
     assert metrics["context_precision"] >= 0.80
 
 
-def test_celery_beat_schedule_configuration():
-    """Test 5: Validate Celery app task routes and beat schedule for hard negative miner."""
+def test_celery_does_not_schedule_private_interaction_mining():
     from app.celery_app import celery_app
 
-    schedule = celery_app.conf.beat_schedule
-    assert "mine-hard-negatives-every-6-hours" in schedule
-    task_config = schedule["mine-hard-negatives-every-6-hours"]
-    assert task_config["task"] == "evaluation.hard_negative_miner.mine_hard_negatives"
-    assert task_config["schedule"] == 21600.0  # 6 hours in seconds
+    assert not celery_app.conf.beat_schedule
+    assert "evaluation.hard_negative_miner" not in celery_app.conf.include

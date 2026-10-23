@@ -11,6 +11,7 @@ from typing import List, Dict, Any, Optional
 import asyncpg
 
 from app.config import settings
+from app.db.tenant import tenant_connection
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ async def vector_search(
     tenant_id: str,
     top_k: int = 20,
     db_conn: Optional[Any] = None,
-    ef_search: Optional[int] = None
+    ef_search: Optional[int] = None,
+    document_ids: Optional[list[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Query PostgreSQL pgvector HNSW index using cosine similarity distance operator (<=>).
@@ -59,13 +61,15 @@ async def vector_search(
                    1 - (c.embedding <=> $1::vector) AS similarity_score
             FROM chunks c
             JOIN documents d ON d.id = c.document_id
-            WHERE c.tenant_id = $2::uuid AND c.embedding IS NOT NULL
+            WHERE c.tenant_id = $2::uuid AND d.tenant_id=$2::uuid AND d.status='indexed' AND c.embedding IS NOT NULL
+              AND ($4::uuid[] IS NULL OR d.id=ANY($4::uuid[]))
             ORDER BY c.embedding <=> $1::vector ASC
             LIMIT $3;
             """,
             vector_str,
             tenant_id,
-            top_k
+            top_k,
+            document_ids,
         )
 
         formatted_rows = []
@@ -77,26 +81,27 @@ async def vector_search(
                 except Exception:
                     bbox = {}
 
-            formatted_rows.append({
-                "id": str(r["id"]),
-                "document_id": str(r["document_id"]),
-                "content": r["content"],
-                "contextual_summary": r["contextual_summary"] or "",
-                "page_number": r["page_number"] or 1,
-                "bounding_box": bbox or {},
-                "source_filename": r.get("source_filename", ""),
-                "similarity_score": round(float(r["similarity_score"]), 5) if r["similarity_score"] is not None else 0.0
-            })
+            formatted_rows.append(
+                {
+                    "id": str(r["id"]),
+                    "document_id": str(r["document_id"]),
+                    "content": r["content"],
+                    "contextual_summary": r["contextual_summary"] or "",
+                    "page_number": r["page_number"] or 1,
+                    "bounding_box": bbox or {},
+                    "source_filename": r.get("source_filename", ""),
+                    "similarity_score": round(float(r["similarity_score"]), 5)
+                    if r["similarity_score"] is not None
+                    else 0.0,
+                }
+            )
         return formatted_rows
 
     if db_conn is not None:
         return await _execute_search(db_conn)
 
     # Standalone connection
-    conn = await asyncpg.connect(_get_raw_db_url(settings.DATABASE_URL))
-    try:
+    async with tenant_connection(tenant_id) as conn:
         results = await _execute_search(conn)
-    finally:
-        await conn.close()
 
     return results

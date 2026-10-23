@@ -84,76 +84,25 @@ class MockRedis:
 # Test 1: Semantic Cache Hit (< 15ms latency and source: "cache")
 # ============================================================================
 @pytest.mark.asyncio
-async def test_semantic_cache_hit_and_latency(monkeypatch):
-    """
-    Test 1: Send the same query twice.
-    Confirm the second query is a cache hit returning source: 'cache' in under 15ms.
-    """
-    mock_redis = MockRedis()
-    cache = SemanticCache(redis_client=mock_redis, threshold=0.96)
-
-    dummy_embedding = [0.1] * 1536
-    mock_embedder = AsyncMock()
-    mock_embedder.embed_text = AsyncMock(return_value=dummy_embedding)
-
-    # First query: Cache Miss -> Populated
-    res1 = await process_query(
-        query="What is the refund policy?",
-        tenant_id="tenant-test",
-        user_id="user-123",
-        redis_client=mock_redis,
-        embedder=mock_embedder,
-        cache=cache,
-    )
-    assert res1["hyde_used"] is True
-    assert "chunks" in res1
-
-    # Store answer in semantic cache
-    await cache.set("What is the refund policy?", dummy_embedding, "Refunds are processed within 14 days.")
-
-    # Second query: Cache HIT -> returns source: "cache" in < 15ms
-    t0 = perf_counter()
-    res2 = await process_query(
-        query="What is the refund policy?",
-        tenant_id="tenant-test",
-        user_id="user-123",
-        redis_client=mock_redis,
-        embedder=mock_embedder,
-        cache=cache,
-    )
-    duration_ms = (perf_counter() - t0) * 1000
-
-    assert res2.get("source") == "cache"
-    assert res2.get("answer") == "Refunds are processed within 14 days."
-    assert res2.get("latency_ms") < 15.0
-    assert duration_ms < 15.0
+async def test_semantic_cache_is_disabled_until_provenance_is_scoped():
+    cache = SemanticCache(redis_client=MockRedis())
+    assert await cache.get([0.1] * 1536) is None
+    with pytest.raises(RuntimeError, match="disabled"):
+        await cache.set("query", [0.1] * 1536, "private answer")
 
 
 @pytest.mark.asyncio
-async def test_evaluation_bypasses_cached_answers(monkeypatch):
-    """A benchmark query must exercise retrieval even if an answer is cached."""
+async def test_pipeline_never_reads_unscoped_cached_answers(monkeypatch):
     from app.agentic import pipeline
 
-    cache = SemanticCache(redis_client=MockRedis())
-    embedding = [0.1] * 1536
-    await cache.set("What is Umar's degree?", embedding, "A stale cached answer")
-    fake_embedder = AsyncMock()
-    fake_embedder.embed_text = AsyncMock(return_value=embedding)
-    fake_retrieval = AsyncMock(return_value=[{"id": "book-chunk", "content": "BS Artificial Intelligence"}])
-    monkeypatch.setattr(pipeline.engine, "retrieve", fake_retrieval)
-
-    result = await process_query(
-        query="What is Umar's degree?",
-        tenant_id="tenant-test",
-        user_id="user-123",
-        embedder=fake_embedder,
-        cache=cache,
-        bypass_cache=True,
-    )
-
+    cache = MagicMock()
+    cache.get = AsyncMock(return_value="another tenant's answer")
+    retrieve = AsyncMock(return_value=[{"id": "fresh", "content": "current evidence"}])
+    monkeypatch.setattr(pipeline.engine, "retrieve", retrieve)
+    result = await process_query("Question", "tenant-a", "user-a", cache=cache)
+    assert result["chunks"][0]["id"] == "fresh"
     assert "answer" not in result
-    assert result["chunks"][0]["id"] == "book-chunk"
-    fake_retrieval.assert_awaited_once()
+    cache.get.assert_not_awaited()
 
 
 # ============================================================================
@@ -171,11 +120,13 @@ async def test_query_expansion():
     mock_response.choices = [
         MagicMock(
             message=MagicMock(
-                content=json.dumps([
-                    "employee annual leave rules",
-                    "holiday entitlement for staff",
-                    "vacation policy details",
-                ])
+                content=json.dumps(
+                    [
+                        "employee annual leave rules",
+                        "holiday entitlement for staff",
+                        "vacation policy details",
+                    ]
+                )
             )
         )
     ]
@@ -206,11 +157,15 @@ async def test_router_classification():
     mock_response.choices = [MagicMock(message=MagicMock(content="MULTI_HOP_GRAPH"))]
     mock_llm.chat.completions.create = AsyncMock(return_value=mock_response)
 
-    route_with_llm = await classify_route("What is Alice's department?", llm_client=mock_llm)
+    route_with_llm = await classify_route(
+        "What is Alice's department?", llm_client=mock_llm
+    )
     assert route_with_llm == ROUTE_MULTI_HOP_GRAPH
 
     # Also test offline / fallback heuristic
-    route_heuristic = await classify_route("What is Alice's department?", llm_client=None)
+    route_heuristic = await classify_route(
+        "What is Alice's department?", llm_client=None
+    )
     assert route_heuristic == ROUTE_MULTI_HOP_GRAPH
 
 
@@ -225,9 +180,11 @@ async def test_pipeline_orchestration(monkeypatch):
     """
     from app.retrieval import engine
 
-    mock_retrieve = AsyncMock(return_value=[
-        {"id": "doc-1", "content": "Refunds take 14 business days.", "score": 0.95}
-    ])
+    mock_retrieve = AsyncMock(
+        return_value=[
+            {"id": "doc-1", "content": "Refunds take 14 business days.", "score": 0.95}
+        ]
+    )
     monkeypatch.setattr(engine, "retrieve", mock_retrieve)
 
     mock_redis = MockRedis()
@@ -240,7 +197,11 @@ async def test_pipeline_orchestration(monkeypatch):
     mock_llm = AsyncMock()
     mock_llm_response = MagicMock()
     mock_llm_response.choices = [
-        MagicMock(message=MagicMock(content=json.dumps(["refund procedure", "money back policy"])))
+        MagicMock(
+            message=MagicMock(
+                content=json.dumps(["refund procedure", "money back policy"])
+            )
+        )
     ]
     mock_llm.chat.completions.create = AsyncMock(return_value=mock_llm_response)
 
@@ -263,8 +224,8 @@ async def test_pipeline_orchestration(monkeypatch):
     assert isinstance(result["chunks"], list)
     assert len(result["chunks"]) == 1
     assert result["chunks"][0]["id"] == "doc-1"
-    assert result["route"] == ROUTE_FACTUAL_VECTOR
-    assert result["hyde_used"] is True
+    assert result["route"] == "HYBRID"
+    assert result["hyde_used"] is False
     assert len(result["query_variants"]) >= 1
     assert result["query_variants"][0] == "What is the refund policy?"
 
@@ -278,27 +239,45 @@ async def test_hyde_embedding_generation():
     mock_llm = AsyncMock()
     mock_response = MagicMock()
     mock_response.choices = [
-        MagicMock(message=MagicMock(content="Employees receive 25 days of paid annual leave each year."))
+        MagicMock(
+            message=MagicMock(
+                content="Employees receive 25 days of paid annual leave each year."
+            )
+        )
     ]
     mock_llm.chat.completions.create = AsyncMock(return_value=mock_response)
 
     mock_embedder = AsyncMock()
     mock_embedder.embed_text = AsyncMock(return_value=[0.123] * 1536)
 
-    emb = await generate_hyde_embedding("leave policy", llm_client=mock_llm, embedder=mock_embedder)
+    emb = await generate_hyde_embedding(
+        "leave policy", llm_client=mock_llm, embedder=mock_embedder
+    )
     assert isinstance(emb, list)
     assert len(emb) == 1536
     # Verify embed_text was called with the hypothetical answer text
-    mock_embedder.embed_text.assert_awaited_once_with("Employees receive 25 days of paid annual leave each year.")
+    mock_embedder.embed_text.assert_awaited_once_with(
+        "Employees receive 25 days of paid annual leave each year."
+    )
 
 
 @pytest.mark.asyncio
 async def test_router_all_strategies():
     """Verify all 4 routing strategies classify correctly."""
     assert await classify_route("Hello, how are you?") == ROUTE_GREETING_DIRECT
-    assert await classify_route("How many queries were made last week?") == ROUTE_ANALYTICAL_SQL
-    assert await classify_route("What rules apply to employees in London hired before 2022?") == ROUTE_MULTI_HOP_GRAPH
-    assert await classify_route("What does the refund policy say?") == ROUTE_FACTUAL_VECTOR
+    assert (
+        await classify_route("How many queries were made last week?")
+        == ROUTE_ANALYTICAL_SQL
+    )
+    assert (
+        await classify_route(
+            "What rules apply to employees in London hired before 2022?"
+        )
+        == ROUTE_MULTI_HOP_GRAPH
+    )
+    assert (
+        await classify_route("What does the refund policy say?") == ROUTE_FACTUAL_VECTOR
+    )
 
 
 @pytest.mark.asyncio

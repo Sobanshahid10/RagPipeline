@@ -8,6 +8,7 @@ from time import perf_counter
 from typing import Any
 
 from app.config import settings
+from app.db.tenant import tenant_connection
 from app.ingestion import embedder
 from app.retrieval import bm25_search, fusion, graph_search, vector_search
 from app.retrieval.compressor import compress_context
@@ -17,12 +18,29 @@ logger = logging.getLogger(__name__)
 _reranker = CrossEncoderReranker()
 
 
-async def retrieve(query: str, tenant_id: str) -> list[dict[str, Any]]:
+async def retrieve(
+    query: str, tenant_id: str, document_ids: list[str] | None = None
+) -> list[dict[str, Any]]:
     """Run dense, lexical, and graph retrieval through fusion and compression."""
     cleaned_query = query.strip()
     if not cleaned_query:
         return []
 
+    identity = embedder.embedding_identity()
+    async with tenant_connection(tenant_id) as conn:
+        stale = await conn.fetchval(
+            """SELECT EXISTS(SELECT 1 FROM documents
+            WHERE tenant_id=$1::uuid AND status='indexed'
+              AND ($2::uuid[] IS NULL OR id=ANY($2::uuid[]))
+              AND metadata->>'embedding_identity' IS DISTINCT FROM $3)""",
+            tenant_id,
+            document_ids,
+            identity,
+        )
+        if stale:
+            raise RuntimeError(
+                "Selected documents require reindexing for the configured embedding model"
+            )
     started = perf_counter()
     redis_client: Any | None = None
     try:
@@ -37,9 +55,19 @@ async def retrieve(query: str, tenant_id: str) -> list[dict[str, Any]]:
         embedded_at = perf_counter()
 
         bm25_results, vector_results, graph_results = await asyncio.gather(
-            bm25_search.bm25_search(cleaned_query, tenant_id, top_k=20),
-            vector_search.vector_search(embedding, tenant_id, top_k=20),
-            graph_search.graph_search(cleaned_query, tenant_id, max_hops=3, top_k=15),
+            bm25_search.bm25_search(
+                cleaned_query, tenant_id, top_k=20, document_ids=document_ids
+            ),
+            vector_search.vector_search(
+                embedding, tenant_id, top_k=20, document_ids=document_ids
+            ),
+            graph_search.graph_search(
+                cleaned_query,
+                tenant_id,
+                max_hops=3,
+                top_k=15,
+                document_ids=document_ids,
+            ),
         )
         searched_at = perf_counter()
 
@@ -50,9 +78,13 @@ async def retrieve(query: str, tenant_id: str) -> list[dict[str, Any]]:
         )
         fused_at = perf_counter()
 
-        reranked = await asyncio.to_thread(_reranker.rerank, cleaned_query, fused[:40], 5)
+        reranked = await asyncio.to_thread(
+            _reranker.rerank, cleaned_query, fused[:40], 5
+        )
         reranked_at = perf_counter()
-        compressed = await asyncio.to_thread(compress_context, reranked, cleaned_query, 0.5)
+        compressed = await asyncio.to_thread(
+            compress_context, reranked, cleaned_query, 0.5
+        )
         finished = perf_counter()
 
         logger.info(

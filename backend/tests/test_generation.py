@@ -16,14 +16,16 @@ from app.generation.streamer import stream_response
 from app.generation.streamer import ConfiguredLLMClient
 
 
-CHUNKS = [{
-    "id": "chunk-123",
-    "document_id": "doc-456",
-    "content": "Employees receive 25 days of annual leave.",
-    "page_number": 7,
-    "bounding_box": {"xmin": 0.1, "ymin": 0.2, "xmax": 0.9, "ymax": 0.3},
-    "source_filename": "handbook.pdf",
-}]
+CHUNKS = [
+    {
+        "id": "chunk-123",
+        "document_id": "doc-456",
+        "content": "Employees receive 25 days of annual leave.",
+        "page_number": 7,
+        "bounding_box": {"xmin": 0.1, "ymin": 0.2, "xmax": 0.9, "ymax": 0.3},
+        "source_filename": "handbook.pdf",
+    }
+]
 
 
 def test_prompt_builder_labels_grounding_sources():
@@ -51,11 +53,17 @@ async def test_groq_answer_model_override_uses_groq_key_and_model(monkeypatch):
         )
 
     real_client = httpx.AsyncClient
-    monkeypatch.setattr(httpx, "AsyncClient", lambda **kwargs: real_client(transport=httpx.MockTransport(handler)))
+    monkeypatch.setattr(
+        httpx,
+        "AsyncClient",
+        lambda **kwargs: real_client(transport=httpx.MockTransport(handler)),
+    )
     monkeypatch.setattr(settings, "GROQ_API_KEY", "test-groq-key")
     client = ConfiguredLLMClient("openai/gpt-oss-20b")
     assert client.provider == "groq"
-    assert [part async for part in client.stream("System", "Question")] == ["Grounded answer"]
+    assert [part async for part in client.stream("System", "Question")] == [
+        "Grounded answer"
+    ]
     request = captured["request"]
     assert json.loads(request.content)["model"] == "openai/gpt-oss-20b"
     assert request.headers["authorization"] == "Bearer test-groq-key"
@@ -67,12 +75,23 @@ async def test_selected_groq_model_requires_key(monkeypatch):
 
     monkeypatch.setattr(settings, "GROQ_API_KEY", None)
     with pytest.raises(RuntimeError, match="GROQ_API_KEY"):
-        _ = [part async for part in ConfiguredLLMClient("openai/gpt-oss-120b").stream("System", "Question")]
+        _ = [
+            part
+            async for part in ConfiguredLLMClient("openai/gpt-oss-120b").stream(
+                "System", "Question"
+            )
+        ]
 
 
 def test_query_accepts_current_models_and_rejects_retired_ids():
-    assert query_api.QueryRequest(query="Q", model="openai/gpt-oss-120b").model == "openai/gpt-oss-120b"
-    assert query_api.QueryRequest(query="Q", model="gemini-3.7-flash").model == "gemini-3.7-flash"
+    assert (
+        query_api.QueryRequest(query="Q", model="openai/gpt-oss-120b").model
+        == "openai/gpt-oss-120b"
+    )
+    assert (
+        query_api.QueryRequest(query="Q", model="gemini-3.7-flash").model
+        == "gemini-3.7-flash"
+    )
     with pytest.raises(ValidationError):
         query_api.QueryRequest(query="Q", model="gemini-2.0-flash")
 
@@ -83,14 +102,16 @@ def test_citation_parser_resolves_bounding_box_and_ignores_unknown_sources():
         "Unknown claim. [SOURCE:missing:2]"
     )
     citations = extract_citations(answer, CHUNKS)
-    assert citations == [{
-        "chunk_id": "chunk-123",
-        "document_id": "doc-456",
-        "page_number": 7,
-        "bounding_box": CHUNKS[0]["bounding_box"],
-        "source_filename": "handbook.pdf",
-        "excerpt": CHUNKS[0]["content"][:200],
-    }]
+    assert citations == [
+        {
+            "chunk_id": "chunk-123",
+            "document_id": "doc-456",
+            "page_number": 7,
+            "bounding_box": CHUNKS[0]["bounding_box"],
+            "source_filename": "handbook.pdf",
+            "excerpt": CHUNKS[0]["content"][:200],
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -100,9 +121,12 @@ async def test_streamer_emits_tokens_citations_then_done_metadata():
             yield "Employees receive 25 days. "
             yield "[SOURCE:chunk-123:7]"
 
-    events = [event async for event in stream_response(
-        "What is the leave policy?", CHUNKS, FakeLLM(), route_used="FACTUAL_VECTOR"
-    )]
+    events = [
+        event
+        async for event in stream_response(
+            "What is the leave policy?", CHUNKS, FakeLLM(), route_used="FACTUAL_VECTOR"
+        )
+    ]
     assert [event["type"] for event in events] == ["token", "token", "citation", "done"]
     assert events[2]["citation"]["bounding_box"] == CHUNKS[0]["bounding_box"]
     metadata = events[-1]["metadata"]
@@ -114,39 +138,65 @@ async def test_streamer_emits_tokens_citations_then_done_metadata():
 
 
 @pytest.mark.asyncio
-async def test_query_endpoint_cache_event_and_feedback(monkeypatch):
-    monkeypatch.setattr(query_api, "process_query", AsyncMock(return_value={
-        "answer": "Cached leave answer",
-        "source": "cache",
-        "latency_ms": 2.5,
-    }))
+async def test_query_endpoint_validated_event_and_owned_feedback(monkeypatch):
+    from contextlib import asynccontextmanager
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "test-key")
+    conn = AsyncMock()
+    conn.fetch.return_value = []
+    conn.execute.return_value = "UPDATE 1"
+
+    @asynccontextmanager
+    async def scoped(tenant):
+        yield conn
+
+    monkeypatch.setattr(query_api, "tenant_connection", scoped)
+    monkeypatch.setattr(
+        query_api, "process_query", AsyncMock(return_value={"chunks": CHUNKS})
+    )
+
+    class Model:
+        model = "gemini-3.8-flash"
+        provider = "gemini"
+
+        async def stream(self, *args):
+            yield "Employees receive 25 days. [SOURCE:chunk-123:7]"
+
+        async def verify(self, *args):
+            return True
+
+    monkeypatch.setattr(query_api, "ConfiguredLLMClient", lambda *args: Model())
     persist = AsyncMock()
     monkeypatch.setattr(query_api, "_persist_interaction", persist)
-    user = SimpleNamespace(id="11111111-1111-1111-1111-111111111111", tenant_id="22222222-2222-2222-2222-222222222222")
-
-    response = await query_api.query_documents(query_api.QueryRequest(query="leave"), user)
+    user = SimpleNamespace(
+        id="11111111-1111-1111-1111-111111111111",
+        tenant_id="22222222-2222-2222-2222-222222222222",
+    )
+    response = await query_api.query_documents(
+        query_api.QueryRequest(query="leave"), user
+    )
     events = []
     async for event in response.body_iterator:
-        # The compatibility response encodes SSE; installed sse-starlette retains dict events.
         if isinstance(event, str):
-            data_line = next(line for line in event.splitlines() if line.startswith("data: "))
-            events.append(json.loads(data_line[6:]))
+            events.append(
+                json.loads(
+                    next(
+                        line[6:]
+                        for line in event.splitlines()
+                        if line.startswith("data: ")
+                    )
+                )
+            )
         else:
-            payload = event.get("data", event) if isinstance(event, dict) else event
-            events.append(json.loads(payload) if isinstance(payload, str) else payload)
-    assert events[0]["type"] == "done"
-    assert events[0]["answer"] == "Cached leave answer"
-    assert events[0]["metadata"]["source"] == "cache"
+            events.append(json.loads(event["data"]))
+    assert events[-1]["type"] == "done"
+    assert events[-1]["metadata"]["actual_model"] == "gemini-3.8-flash"
     persist.assert_awaited_once()
-
-    connection = AsyncMock()
-    connection.execute.return_value = "UPDATE 1"
-    monkeypatch.setattr(query_api.asyncpg, "connect", AsyncMock(return_value=connection))
-    interaction_id = events[0]["metadata"]["interaction_id"]
     feedback = await query_api.submit_feedback(
-        interaction_id=query_api.uuid.UUID(interaction_id),
-        request=query_api.FeedbackRequest(feedback=1),
-        current_user=user,
+        query_api.uuid.UUID(events[-1]["metadata"]["interaction_id"]),
+        query_api.FeedbackRequest(feedback=1),
+        user,
     )
     assert feedback["feedback"] == 1
-    connection.close.assert_awaited_once()
+    assert "user_id=$4" in conn.execute.call_args.args[0]

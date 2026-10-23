@@ -13,6 +13,8 @@ import uuid
 import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
+from types import SimpleNamespace
+from app.api import documents as documents_api
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -67,7 +69,13 @@ async def test_stream_response_events():
 
     class MockLLM:
         async def stream(self, system, user_prompt):
-            tokens = ["Nexus ", "RAG ", "supports ", "search ", f"[SOURCE:{sample_chunk_id}:1]."]
+            tokens = [
+                "Nexus ",
+                "RAG ",
+                "supports ",
+                "search ",
+                f"[SOURCE:{sample_chunk_id}:1].",
+            ]
             for t in tokens:
                 yield t
 
@@ -90,6 +98,7 @@ async def test_stream_response_events():
 async def test_list_documents_mocked():
     """Verify list_documents returns properly structured list."""
     mock_conn = AsyncMock()
+    mock_conn.transaction = MagicMock(return_value=AsyncMock())
     mock_conn.fetch.return_value = [
         {
             "id": uuid.uuid4(),
@@ -100,11 +109,12 @@ async def test_list_documents_mocked():
             "chunk_count": 12,
             "created_at": MagicMock(isoformat=lambda: "2026-08-23T10:00:00"),
             "updated_at": MagicMock(isoformat=lambda: "2026-08-23T10:05:00"),
+            "stalled": False,
         }
     ]
 
     with patch("asyncpg.connect", return_value=mock_conn):
-        results = await list_documents()
+        results = await list_documents(SimpleNamespace(tenant_id=uuid.uuid4()))
         assert len(results) == 1
         assert results[0].filename == "demo.pdf"
         assert results[0].status == "indexed"
@@ -113,12 +123,14 @@ async def test_list_documents_mocked():
 
 
 @pytest.mark.asyncio
-async def test_get_document_file_mocked(tmp_path):
+async def test_get_document_file_mocked(tmp_path, monkeypatch):
+    monkeypatch.setattr(documents_api, "UPLOAD_DIR", tmp_path)
     """Verify get_document_file serves the existing PDF file."""
     fake_pdf = tmp_path / "test.pdf"
     fake_pdf.write_bytes(b"%PDF-1.4 test document content")
 
     mock_conn = AsyncMock()
+    mock_conn.transaction = MagicMock(return_value=AsyncMock())
     mock_conn.fetchrow.return_value = {
         "storage_uri": str(fake_pdf),
         "filename": "test.pdf",
@@ -126,6 +138,8 @@ async def test_get_document_file_mocked(tmp_path):
     }
 
     with patch("asyncpg.connect", return_value=mock_conn):
-        response = await get_document_file(str(uuid.uuid4()))
+        response = await get_document_file(
+            uuid.uuid4(), SimpleNamespace(tenant_id=uuid.uuid4())
+        )
         assert response.status_code == 200
         assert response.media_type == "application/pdf"

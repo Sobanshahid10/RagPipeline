@@ -43,14 +43,16 @@ def test_compression_preserves_source_metadata():
         def compress_prompt(self, context, question, ratio):
             return {"compressed_prompt": "compressed policy context"}
 
-    chunks = [{
-        "id": "chunk-1",
-        "content": "A long policy context.",
-        "bounding_box": {"xmin": 0.1},
-        "page_number": 4,
-        "rrf_score": 0.05,
-        "rerank_score": 0.9,
-    }]
+    chunks = [
+        {
+            "id": "chunk-1",
+            "content": "A long policy context.",
+            "bounding_box": {"xmin": 0.1},
+            "page_number": 4,
+            "rrf_score": 0.05,
+            "rerank_score": 0.9,
+        }
+    ]
     result = compress_context(chunks, "policy", prompt_compressor=FakeCompressor())
     assert result[0]["content"] == "compressed policy context"
     assert result[0]["id"] == "chunk-1"
@@ -60,6 +62,17 @@ def test_compression_preserves_source_metadata():
 
 @pytest.mark.asyncio
 async def test_engine_runs_all_retrievers_and_returns_five(monkeypatch):
+    from contextlib import asynccontextmanager
+
+    conn = AsyncMock()
+    conn.fetchval.return_value = False
+
+    @asynccontextmanager
+    async def scoped(tenant):
+        yield conn
+
+    monkeypatch.setattr(engine, "tenant_connection", scoped)
+    monkeypatch.setattr(engine.embedder, "embedding_identity", lambda: "test-model")
     awaitable_embedding = AsyncMock(return_value=[0.1, 0.2])
     bm25 = AsyncMock(return_value=[{"id": "shared", "content": "policy"}])
     vector = AsyncMock(return_value=[{"id": "shared", "content": "policy"}])
@@ -89,6 +102,8 @@ async def test_search_api_uses_authenticated_tenant(monkeypatch):
     mocked_retrieve = AsyncMock(return_value=[{"id": "result-1"}])
     monkeypatch.setattr(retrieval_api, "retrieve", mocked_retrieve)
     user = SimpleNamespace(tenant_id="tenant-a")
-    result = await retrieval_api.search(retrieval_api.SearchRequest(query="policy"), user)
+    result = await retrieval_api.search(
+        retrieval_api.SearchRequest(query="policy"), user
+    )
     assert result == [{"id": "result-1"}]
     mocked_retrieve.assert_awaited_once_with("policy", "tenant-a")

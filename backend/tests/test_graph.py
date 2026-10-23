@@ -11,12 +11,9 @@ from app.ingestion.graph_extractor import (
     has_named_entities,
     _normalize_entity,
     _normalize_predicate,
-    _clean_and_parse_json
+    _clean_and_parse_json,
 )
-from app.retrieval.graph_search import (
-    graph_search,
-    extract_query_entities
-)
+from app.retrieval.graph_search import graph_search, extract_query_entities
 
 
 @pytest.mark.asyncio
@@ -65,7 +62,7 @@ async def test_triple_extraction_and_normalization():
         chunk_content=content,
         tenant_id=tenant_id,
         llm_client=mock_llm_client,
-        db=mock_db
+        db=mock_db,
     )
 
     assert len(extracted) == 2
@@ -105,7 +102,9 @@ async def test_multi_hop_graph_traversal():
             "content": "The London Office follows the UK Leave Policy.",
             "contextual_summary": "HR Policy Overview",
             "page_number": 3,
-            "bounding_box": json.dumps({"ymin": 0.1, "xmin": 0.1, "ymax": 0.5, "xmax": 0.9})
+            "bounding_box": json.dumps(
+                {"ymin": 0.1, "xmin": 0.1, "ymax": 0.5, "xmax": 0.9}
+            ),
         },
         {
             "id": "11111111-1111-1111-1111-111111111111",
@@ -113,21 +112,21 @@ async def test_multi_hop_graph_traversal():
             "content": "Alice manages the London Office.",
             "contextual_summary": "Organization Structure",
             "page_number": 1,
-            "bounding_box": json.dumps({"ymin": 0.0, "xmin": 0.0, "ymax": 0.2, "xmax": 0.8})
-        }
+            "bounding_box": json.dumps(
+                {"ymin": 0.0, "xmin": 0.0, "ymax": 0.2, "xmax": 0.8}
+            ),
+        },
     ]
 
     results = await graph_search(
-        query=query,
-        tenant_id=tenant_id,
-        max_hops=3,
-        top_k=5,
-        db_conn=mock_db_conn
+        query=query, tenant_id=tenant_id, max_hops=3, top_k=5, db_conn=mock_db_conn
     )
 
     assert len(results) == 2
     # Verify the UK Leave Policy chunk is retrieved
-    policy_chunk = next((r for r in results if "uk leave policy" in r["content"].lower()), None)
+    policy_chunk = next(
+        (r for r in results if "uk leave policy" in r["content"].lower()), None
+    )
     assert policy_chunk is not None
     assert policy_chunk["id"] == "22222222-2222-2222-2222-222222222222"
     assert policy_chunk["page_number"] == 3
@@ -136,8 +135,11 @@ async def test_multi_hop_graph_traversal():
 
     # Verify recursive CTE was executed with tenant isolation
     assert mock_db_conn.fetch.called
-    executed_sql, pattern_arg, tenant_arg, hops_arg, limit_arg = mock_db_conn.fetch.call_args[0]
-    assert "WITH RECURSIVE graph_traverse" in executed_sql
+    executed_sql, pattern_arg, tenant_arg, hops_arg, limit_arg, document_ids_arg = (
+        mock_db_conn.fetch.call_args[0]
+    )
+    assert "WITH RECURSIVE eligible_triples" in executed_sql
+    assert "FROM eligible_triples e" in executed_sql
     assert tenant_arg == tenant_id
     assert hops_arg == 3
 
@@ -161,16 +163,12 @@ async def test_graph_search_deduplication():
         "content": "The London Office follows the UK Leave Policy.",
         "contextual_summary": "HR Policy Overview",
         "page_number": 3,
-        "bounding_box": {}
+        "bounding_box": {},
     }
     mock_db_conn.fetch.return_value = [shared_chunk]
 
     results = await graph_search(
-        query=query,
-        tenant_id=tenant_id,
-        max_hops=3,
-        top_k=10,
-        db_conn=mock_db_conn
+        query=query, tenant_id=tenant_id, max_hops=3, top_k=10, db_conn=mock_db_conn
     )
 
     # Should only contain 1 unique chunk despite multiple entity CTE matches

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:alpine
@@ -10,6 +8,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
     depends_on:
       - backend
       - frontend
@@ -22,11 +21,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-rag_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rag_password}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-rag_db}
+      RUNTIME_DB_PASSWORD: ${RUNTIME_DB_PASSWORD:?Set RUNTIME_DB_PASSWORD}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
-      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/db/00_runtime_role.sh:/docker-entrypoint-initdb.d/00_runtime_role.sh:ro
+      - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./backend/db/zz_runtime_grants.sql:/docker-entrypoint-initdb.d/zz_runtime_grants.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rag_user} -d ${POSTGRES_DB:-rag_db}"]
       interval: 5s
@@ -39,11 +41,11 @@ services:
     image: redis:7-alpine
     container_name: rag_redis_prod
     restart: unless-stopped
-    command: redis-server --requirepass "${REDIS_PASSWORD:-rag_redis_password}"
+    command: redis-server --requirepass "${REDIS_PASSWORD:?Set REDIS_PASSWORD}"
     volumes:
       - redis_prod_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-rag_redis_password}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:?Set REDIS_PASSWORD}", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -55,7 +57,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4 --proxy-headers --forwarded-allow-ips=*
     deploy:
       replicas: 2
       resources:
@@ -67,9 +69,12 @@ services:
           memory: 256M
     environment:
       PROJECT_NAME: ${PROJECT_NAME:-"Production RAG Engine"}
-      DATABASE_URL: ${DATABASE_URL:-"postgresql+asyncpg://rag_user:rag_password@postgres:5432/rag_db"}
-      REDIS_URL: ${REDIS_URL:-"redis://:rag_redis_password@redis:6379/0"}
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql+asyncpg://rag_runtime:${RUNTIME_DB_PASSWORD:?Set RUNTIME_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-rag_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379/0
+      ENVIRONMENT: production
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set HTTPS CORS_ORIGINS as a JSON array}
+      UPLOAD_DIR: /app/storage/uploads
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
       GROQ_API_KEY: ${GROQ_API_KEY:-""}
@@ -77,6 +82,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-""}
       LLM_PROVIDER: ${LLM_PROVIDER:-"gemini"}
       LLM_MODEL: ${LLM_MODEL:-"gemini-3.8-flash"}
+    volumes:
+      - uploads:/app/storage/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -90,12 +97,20 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    command: celery -A app.celery_app worker --loglevel=info -Q high_priority,low_priority --concurrency=4
+    command: celery -A app.celery_app worker --loglevel=info -Q high_priority,low_priority --concurrency=2
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
     environment:
       PROJECT_NAME: ${PROJECT_NAME:-"Production RAG Engine"}
-      DATABASE_URL: ${DATABASE_URL:-"postgresql+asyncpg://rag_user:rag_password@postgres:5432/rag_db"}
-      REDIS_URL: ${REDIS_URL:-"redis://:rag_redis_password@redis:6379/0"}
-      JWT_SECRET: ${JWT_SECRET}
+      DATABASE_URL: postgresql+asyncpg://rag_runtime:${RUNTIME_DB_PASSWORD:?Set RUNTIME_DB_PASSWORD}@postgres:5432/${POSTGRES_DB:-rag_db}
+      REDIS_URL: redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD}@redis:6379/0
+      ENVIRONMENT: production
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set HTTPS CORS_ORIGINS as a JSON array}
+      UPLOAD_DIR: /app/storage/uploads
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET}
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
       GROQ_API_KEY: ${GROQ_API_KEY:-""}
@@ -103,6 +118,8 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-""}
       LLM_PROVIDER: ${LLM_PROVIDER:-"gemini"}
       LLM_MODEL: ${LLM_MODEL:-"gemini-3.8-flash"}
+    volumes:
+      - uploads:/app/storage/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -117,7 +134,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      NEXT_PUBLIC_API_URL: "http://nginx/api/v1"
+      NODE_ENV: production
     depends_on:
       - backend
     networks:
@@ -128,14 +145,15 @@ services:
     container_name: rag_jaeger_prod
     restart: unless-stopped
     ports:
-      - "16686:16686"
-      - "4317:4317"
+      - "127.0.0.1:16686:16686"
+      - "127.0.0.1:4317:4317"
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     networks:
       - rag_net
 
 volumes:
+  uploads:
   postgres_prod_data:
   redis_prod_data:
 

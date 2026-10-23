@@ -10,7 +10,7 @@ async def test_register_new_user(client: AsyncClient):
     payload = {
         "email": "alice@acme.corp",
         "password": "SecurePassword2026!",
-        "tenant_name": "Acme Corporation"
+        "tenant_name": "Acme Corporation",
     }
     response = await client.post(f"{settings.API_V1_STR}/auth/register", json=payload)
     assert response.status_code == 200
@@ -28,20 +28,19 @@ async def test_login_correct_credentials(client: AsyncClient):
     reg_payload = {
         "email": "bob@enterprise.io",
         "password": "CorrectPassword123",
-        "tenant_name": "Enterprise IO"
+        "tenant_name": "Enterprise IO",
     }
-    reg_res = await client.post(f"{settings.API_V1_STR}/auth/register", json=reg_payload)
+    reg_res = await client.post(
+        f"{settings.API_V1_STR}/auth/register", json=reg_payload
+    )
     assert reg_res.status_code == 200
 
     # Login with OAuth2 form data
-    login_data = {
-        "username": "bob@enterprise.io",
-        "password": "CorrectPassword123"
-    }
+    login_data = {"username": "bob@enterprise.io", "password": "CorrectPassword123"}
     response = await client.post(
         f"{settings.API_V1_STR}/auth/login",
         data=login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     assert response.status_code == 200
     token_data = response.json()
@@ -62,19 +61,16 @@ async def test_login_wrong_password(client: AsyncClient):
     reg_payload = {
         "email": "carol@shield.org",
         "password": "RealPassword456",
-        "tenant_name": "Shield Security"
+        "tenant_name": "Shield Security",
     }
     await client.post(f"{settings.API_V1_STR}/auth/register", json=reg_payload)
 
     # Login with incorrect password
-    login_data = {
-        "username": "carol@shield.org",
-        "password": "WrongPassword999"
-    }
+    login_data = {"username": "carol@shield.org", "password": "WrongPassword999"}
     response = await client.post(
         f"{settings.API_V1_STR}/auth/login",
         data=login_data,
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     assert response.status_code == 401
     assert "detail" in response.json()
@@ -88,20 +84,19 @@ async def test_get_me_with_valid_token(client: AsyncClient):
     password = "MyPassword789!"
     await client.post(
         f"{settings.API_V1_STR}/auth/register",
-        json={"email": email, "password": password, "tenant_name": "TechLabs"}
+        json={"email": email, "password": password, "tenant_name": "TechLabs"},
     )
 
     login_res = await client.post(
         f"{settings.API_V1_STR}/auth/login",
         data={"username": email, "password": password},
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     token = login_res.json()["access_token"]
 
     # Access /me
     response = await client.get(
-        f"{settings.API_V1_STR}/auth/me",
-        headers={"Authorization": f"Bearer {token}"}
+        f"{settings.API_V1_STR}/auth/me", headers={"Authorization": f"Bearer {token}"}
     )
     assert response.status_code == 200
     profile = response.json()
@@ -122,7 +117,7 @@ async def test_get_me_with_malformed_token(client: AsyncClient):
     """Test 6: Access GET /me with malformed token: expect 401."""
     response = await client.get(
         f"{settings.API_V1_STR}/auth/me",
-        headers={"Authorization": "Bearer not.a.valid.jwt.token"}
+        headers={"Authorization": "Bearer not.a.valid.jwt.token"},
     )
     assert response.status_code == 401
 
@@ -133,7 +128,7 @@ async def test_register_duplicate_email(client: AsyncClient):
     payload = {
         "email": "duplicate@company.com",
         "password": "Password123!",
-        "tenant_name": "Company One"
+        "tenant_name": "Company One",
     }
     res1 = await client.post(f"{settings.API_V1_STR}/auth/register", json=payload)
     assert res1.status_code == 200
@@ -141,7 +136,11 @@ async def test_register_duplicate_email(client: AsyncClient):
     # Attempt second registration with same email
     res2 = await client.post(
         f"{settings.API_V1_STR}/auth/register",
-        json={"email": "duplicate@company.com", "password": "AnotherPassword456!", "tenant_name": "Company Two"}
+        json={
+            "email": "duplicate@company.com",
+            "password": "AnotherPassword456!",
+            "tenant_name": "Company Two",
+        },
     )
     assert res2.status_code == 400
     assert "already exists" in res2.json()["detail"]
@@ -154,7 +153,7 @@ async def test_multi_tenant_isolation(client: AsyncClient):
     user_a = {
         "email": "user.a@tenant-a.com",
         "password": "PasswordA123",
-        "tenant_name": "Tenant Alpha"
+        "tenant_name": "Tenant Alpha",
     }
     res_a = await client.post(f"{settings.API_V1_STR}/auth/register", json=user_a)
     assert res_a.status_code == 200
@@ -164,7 +163,7 @@ async def test_multi_tenant_isolation(client: AsyncClient):
     user_b = {
         "email": "user.b@tenant-b.com",
         "password": "PasswordB456",
-        "tenant_name": "Tenant Beta"
+        "tenant_name": "Tenant Beta",
     }
     res_b = await client.post(f"{settings.API_V1_STR}/auth/register", json=user_b)
     assert res_b.status_code == 200
@@ -176,7 +175,7 @@ async def test_multi_tenant_isolation(client: AsyncClient):
     # Login as User A
     login_a = await client.post(
         f"{settings.API_V1_STR}/auth/login",
-        data={"username": user_a["email"], "password": user_a["password"]}
+        data={"username": user_a["email"], "password": user_a["password"]},
     )
     token_a = login_a.json()["access_token"]
     claims_a = decode_access_token(token_a)
@@ -185,8 +184,63 @@ async def test_multi_tenant_isolation(client: AsyncClient):
     # Login as User B
     login_b = await client.post(
         f"{settings.API_V1_STR}/auth/login",
-        data={"username": user_b["email"], "password": user_b["password"]}
+        data={"username": user_b["email"], "password": user_b["password"]},
     )
     token_b = login_b.json()["access_token"]
     claims_b = decode_access_token(token_b)
     assert claims_b["tenant_id"] == profile_b["tenant_id"]
+
+
+@pytest.mark.asyncio
+async def test_registration_long_workspace_name_fits_database_slug(client):
+    response = await client.post(
+        f"{settings.API_V1_STR}/auth/register",
+        json={
+            "email": "long-name@example.com",
+            "password": "StrongPassword2026!",
+            "tenant_name": "A" * 100,
+        },
+    )
+    assert response.status_code == 200
+    assert len(response.json()["tenant"]["slug"]) <= 50
+
+
+@pytest.mark.asyncio
+async def test_registration_rejects_whitespace_only_workspace_name(client):
+    response = await client.post(
+        f"{settings.API_V1_STR}/auth/register",
+        json={
+            "email": "blank-name@example.com",
+            "password": "StrongPassword2026!",
+            "tenant_name": "   ",
+        },
+    )
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_registration_insert_conflict_rolls_back(monkeypatch):
+    from unittest.mock import AsyncMock, MagicMock
+    from fastapi import HTTPException
+    from sqlalchemy.exc import IntegrityError
+    from app.api import auth
+    from app.schemas.auth import UserCreate
+
+    db = AsyncMock()
+    db.add = MagicMock()
+    result = MagicMock()
+    result.scalar_one_or_none.return_value = None
+    db.execute.return_value = result
+    db.commit.side_effect = IntegrityError("INSERT", {}, Exception("duplicate"))
+    monkeypatch.setattr(auth, "hash_password", lambda password: "hashed-test-password")
+    with pytest.raises(HTTPException) as error:
+        await auth.register(
+            UserCreate(
+                email="racing@example.com",
+                password="StrongPassword2026!",
+                tenant_name="Race",
+            ),
+            db,
+        )
+    assert error.value.status_code == 409
+    db.rollback.assert_awaited_once()
