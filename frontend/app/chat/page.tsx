@@ -461,7 +461,7 @@ export default function ChatPage() {
         if (controller.signal.aborted || requestController.current !== controller) return;
         if (event.type === "token") {
           accumulatedContent += event.content;
-          setStreamingPhase("Receiving verified answer...");
+          setStreamingPhase("Receiving answer...");
           setMessages((prev) =>
             prev.map((msg) =>
               msg.id === assistantMsgId
@@ -845,16 +845,76 @@ export default function ChatPage() {
           </div>
         </div>
 
-              {knowledgeSource === "documents" && <label style={{fontSize:"12px", display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", padding:"8px 20px", borderBottom:"1px solid var(--border)"}}>
-                Evidence scope
-                <select aria-label="Document evidence scope" style={{maxWidth:240,width:"auto"}} className="input-field" value={selectedDocumentIds[0] || ""} onChange={e => setSelectedDocumentIds(e.target.value ? [e.target.value] : [])} disabled={isStreaming}>
-                  <option value="">All indexed documents</option>
-                  {selectedDocumentIds[0] && !indexedDocs.some(doc => doc.document_id === selectedDocumentIds[0]) &&
-                    <option value={selectedDocumentIds[0]} disabled>Selected document is unavailable</option>}
-                  {indexedDocs.map(doc => <option key={doc.document_id} value={doc.document_id}>{doc.filename}</option>)}
+        {knowledgeSource === "documents" && (
+          <div
+            style={{
+              fontSize: "12px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "12px",
+              padding: "7px 20px",
+              borderBottom: "1px solid var(--border)",
+              backgroundColor: "rgba(16, 18, 22, 0.5)",
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", minWidth: 0, flexShrink: 1 }}>
+              <span style={{ color: "var(--text-muted)", fontWeight: 500, whiteSpace: "nowrap", flexShrink: 0 }}>
+                Evidence scope:
+              </span>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "3px 8px",
+                  borderRadius: "6px",
+                  backgroundColor: "var(--surface-raised)",
+                  border: "1px solid var(--border)",
+                  fontSize: "12px",
+                  maxWidth: "320px",
+                  minWidth: 0,
+                }}
+              >
+                <FileText size={13} color="var(--text-muted)" style={{ flexShrink: 0 }} />
+                <select
+                  aria-label="Document evidence scope"
+                  value={selectedDocumentIds[0] || ""}
+                  onChange={(e) => setSelectedDocumentIds(e.target.value ? [e.target.value] : [])}
+                  disabled={isStreaming}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    color: "#FFFFFF",
+                    fontSize: "12px",
+                    fontWeight: 500,
+                    outline: "none",
+                    cursor: "pointer",
+                    maxWidth: "280px",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  <option value="" style={{ background: "#16181C" }}>All indexed documents</option>
+                  {selectedDocumentIds[0] && !indexedDocs.some((doc) => doc.document_id === selectedDocumentIds[0]) && (
+                    <option value={selectedDocumentIds[0]} disabled style={{ background: "#16181C" }}>
+                      Selected document is unavailable
+                    </option>
+                  )}
+                  {indexedDocs.map((doc) => (
+                    <option key={doc.document_id} value={doc.document_id} style={{ background: "#16181C" }}>
+                      {doc.filename}
+                    </option>
+                  ))}
                 </select>
-                <button type="button" className="btn btn-ghost" disabled={isStreaming} onClick={() => setKnowledgeSource("public_book")}>Search the public book instead</button>
-              </label>}
+              </div>
+            </div>
+
+            <span style={{ fontSize: "11px", color: "var(--text-muted)", whiteSpace: "nowrap", flexShrink: 0 }}>
+              {indexedDocs.length} {indexedDocs.length === 1 ? "document" : "documents"} available
+            </span>
+          </div>
+        )}
 
         {/* Conversation History Drawer */}
         <AnimatePresence>
@@ -1313,7 +1373,7 @@ export default function ChatPage() {
                     border: "1px solid var(--border-subtle)",
                   }}
                 >
-                  {selectedCitation.page_number ? `PAGE // 0${selectedCitation.page_number}` : "VERIFIED REF"}
+                  {selectedCitation.page_number ? `PAGE // 0${selectedCitation.page_number}` : "SOURCE REF"}
                 </span>
               )}
             </div>

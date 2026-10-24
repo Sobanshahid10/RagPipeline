@@ -9,11 +9,11 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://rag-pipeline.intern
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "Nexus RAG — Production Multitenant Agentic RAG Platform",
+    default: "RAG Pipeline — Personal RAG Project",
     template: "%s | Nexus RAG",
   },
   description:
-    "Enterprise Multitenant RAG Platform featuring PostgreSQL pgvector, GraphRAG recursive traversal, SSE streaming chat, and layout-aware bounding-box grounding.",
+    "A personal project exploring document chat, public-book search, and retrieval-augmented generation with FastAPI, Next.js, and PostgreSQL.",
   keywords: [
     "RAG",
     "Retrieval-Augmented Generation",
@@ -23,11 +23,11 @@ export const metadata: Metadata = {
     "Agentic RAG",
     "Document Citations",
   ],
-  authors: [{ name: "Nexus Engineering Team" }],
+  authors: [{ name: "Muhammad Soban" }],
   openGraph: {
-    title: "Nexus RAG — Production Multitenant Agentic RAG Platform",
+    title: "RAG Pipeline — Personal RAG Project",
     description:
-      "Enterprise Multitenant RAG with layout-aware document citations, GraphRAG reasoning, and verifiable evidence grounding.",
+      "Explore document chat and a public knowledge book in a personal RAG learning project.",
     url: siteUrl,
     siteName: "Nexus RAG Platform",
     locale: "en_US",
@@ -35,9 +35,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Nexus RAG — Production Multitenant Agentic RAG Platform",
+    title: "RAG Pipeline — Personal RAG Project",
     description:
-      "Production Agentic RAG with PostgreSQL pgvector, GraphRAG traversal, and layout-aware PDF bounding-box inspection.",
+      "A personal RAG project with document search, source passages, and a public knowledge book.",
   },
   robots: {
     index: true,
@@ -52,7 +52,7 @@ const jsonLd = {
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web",
   "description":
-    "Enterprise Multitenant Agentic RAG Platform with hybrid vector retrieval, GraphRAG traversal, and verifiable citation grounding.",
+    "A personal project exploring hybrid retrieval, document chat, and source citations.",
   "offers": {
     "@type": "Offer",
     "price": "0",

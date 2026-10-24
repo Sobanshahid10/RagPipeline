@@ -175,7 +175,7 @@ export default function DashboardPage() {
             <span className="badge badge-accent">Live Observability</span>
           </div>
           <p style={{ fontSize: "14px", color: "var(--text-secondary)" }}>
-            Real-time latency SLA monitoring, service availability and query analytics.
+            Query latency, service status, and usage metrics for this personal project.
           </p>
         </div>
 
@@ -342,7 +342,7 @@ export default function DashboardPage() {
       {/* ── KPI Metrics Cards ─────────────────────────────────────── */}
       <section style={{ marginBottom: "28px" }}>
         <div style={{ fontSize: "11px", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "12px" }}>
-          Production Performance Metrics (24 Hours)
+          Project Performance Metrics (24 Hours)
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: "16px" }}>
           {/* Total Queries */}
@@ -442,7 +442,7 @@ export default function DashboardPage() {
                 Latency Percentiles (TTFT)
               </span>
             </div>
-            <span className="badge badge-accent">SLA Target &lt;500ms</span>
+            <span className="badge badge-accent">Development target &lt;500ms</span>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
@@ -522,12 +522,12 @@ export default function DashboardPage() {
             {stats && stats.p95_ttft_ms < 500 ? (
               <>
                 <CheckCircle2 size={15} />
-                <span>p95 TTFT complies with strict sub-500ms SLA</span>
+                <span>p95 TTFT is below the 500 ms development target</span>
               </>
             ) : (
               <>
                 <AlertCircle size={15} />
-                <span>p95 TTFT exceeds 500ms budget - inspect slow database locks</span>
+                <span>p95 TTFT is above the 500 ms development target; review traces</span>
               </>
             )}
           </div>

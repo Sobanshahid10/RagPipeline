@@ -129,12 +129,6 @@ export const Sidebar: React.FC = () => {
       badge: null,
     },
     {
-      name: "Streaming Chat",
-      href: "/chat",
-      icon: MessageSquare,
-      badge: null,
-    },
-    {
       name: "Document Library",
       href: "/documents",
       icon: FileText,
@@ -148,7 +142,7 @@ export const Sidebar: React.FC = () => {
     },
   ];
 
-  const tenantName = user?.tenant?.name || "Production Enterprise";
+  const tenantName = user?.tenant?.name || "Personal workspace";
   const userInitials = user?.email
     ? user.email.slice(0, 2).toUpperCase()
     : "NX";
@@ -290,7 +284,7 @@ export const Sidebar: React.FC = () => {
                 }}
               >
                 <Plus size={16} />
-                <span>New Conversation</span>
+                <span>New Investigation</span>
               </button>
 
               <button
@@ -323,7 +317,7 @@ export const Sidebar: React.FC = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginBottom: "16px" }}>
               <button
                 onClick={handleNewConversation}
-                title="New Conversation"
+                title="New Investigation"
                 className="btn btn-primary"
                 style={{
                   width: "100%",

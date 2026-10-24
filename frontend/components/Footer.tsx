@@ -51,7 +51,7 @@ export const Footer: React.FC = () => {
             </span>
           </div>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)", lineHeight: 1.6, maxWidth: "280px" }}>
-            Multitenant Agentic RAG Platform combining PostgreSQL pgvector, GraphRAG CTE traversal, and layout-aware document citations.
+            A personal project exploring document chat, public-book search, and retrieval-augmented generation.
           </p>
         </div>
 
@@ -89,7 +89,7 @@ export const Footer: React.FC = () => {
         {/* Compliance & Legal */}
         <div>
           <h2 style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "12px", fontWeight: 700 }}>
-            Trust & Compliance
+            Project Information
           </h2>
           <nav aria-label="Footer legal navigation">
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -156,7 +156,7 @@ export const Footer: React.FC = () => {
         }}
       >
         <div>
-          &copy; {currentYear} Nexus RAG Platform. All rights reserved.
+          &copy; {currentYear} Muhammad Soban. MIT License.
         </div>
         <div style={{ display: "flex", gap: "16px" }}>
           <span>Version 1.0.0</span>

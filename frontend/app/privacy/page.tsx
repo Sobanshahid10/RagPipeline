@@ -27,9 +27,9 @@ export default function PrivacyPolicyPage() {
           </Link>
           <h1 className="legal-title">Privacy Policy</h1>
           <div className="legal-meta">
-            <span>Effective Date: October 4, 2026</span>
+            <span>Effective Date: October 24, 2026</span>
             <span>&bull;</span>
-            <span>Version: 1.1</span>
+            <span>Version: 1.2</span>
           </div>
         </header>
 
@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
         <section className="legal-section">
           <h2>1. Information We Collect</h2>
           <p>
-            Nexus RAG is a multi-tenant enterprise Retrieval-Augmented Generation (RAG) platform. We collect only information strictly necessary to provide document indexing, hybrid search, and generative question answering:
+            RAG Pipeline is a personal project exploring Retrieval-Augmented Generation (RAG). We collect only information strictly necessary to provide document indexing, hybrid search, and generative question answering:
           </p>
           <ul>
             <li>
@@ -85,7 +85,7 @@ export default function PrivacyPolicyPage() {
             When you initiate a query, prompt text and retrieved document passages are transmitted to the LLM inference provider configured by the tenant or platform administrator (e.g., Google Gemini or Groq):
           </p>
           <ul>
-            <li>Production deployments require HTTPS. Local development uses HTTP on localhost.</li>
+            <li>The local development setup uses HTTP on localhost.</li>
             <li>Only retrieved context passages and the user prompt are sent; full document files are never transmitted to LLM providers.</li>
             <li>Refer to the respective provider privacy terms regarding data retention for API inference.</li>
           </ul>
@@ -120,9 +120,8 @@ export default function PrivacyPolicyPage() {
           </p>
           <div style={{ padding: "14px", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid var(--border)" }}>
             <p style={{ margin: 0, fontSize: "14px" }}>
-              <strong>Platform Contact:</strong> Nexus RAG Administration<br />
-              <strong>Email:</strong> privacy@nexus-rag.internal (or your organization administrator)<br />
-              <strong>Entity:</strong> [TODO: Site Owner — Specify legal entity name and registered jurisdiction prior to commercial deployment]
+              <strong>Project owner:</strong> Muhammad Soban<br />
+              <a href="https://github.com/Sobanshahid10/RagPipeline" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>Visit the project repository</a>. For a hosted instance, contact the person running that instance about stored data. Do not post private data in public issues.
             </p>
           </div>
         </section>

@@ -7,6 +7,7 @@ import { askPublicBook, PublicBookAnswer } from "@/lib/api";
 import { DEFAULT_MODEL, MODEL_OPTIONS } from "@/lib/models";
 import { Footer } from "@/components/Footer";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
+import { ProjectOwnerCard } from "@/components/ProjectOwnerCard";
 import { 
   BookOpen, 
   Search, 
@@ -39,23 +40,55 @@ const CHAPTERS: ChapterDef[] = [
     id: "ch-01",
     number: "01",
     title: "People & Identity",
-    scope: "Public identities, profile links, verified handles, and shared educational context for Muhammad Umar Farooq and Muhammad Soban.",
+    scope: "Public identities, profile links, verified handles, and shared educational context for Muhammad Soban and Muhammad Umar Farooq.",
     keyFacts: [
+      "Muhammad Soban (Muhammad Soban Shahid): Repository owner. AI & Frontend Engineer, UMT BS AI student.",
       "Muhammad Umar Farooq: AI & Autonomous Systems Engineer, Lahore. BS AI student at UMT.",
-      "Muhammad Soban (Muhammad Soban Shahid): AI & Frontend Engineer, UMT BS AI student.",
-      "Both Umar and Soban are males (pronouns: he/him/his).",
+      "Both Soban and Umar are males (pronouns: he/him/his).",
       "Shared collaborative context on ChiefMind, ClarityHire, DocuStratum, and OS Pilot.",
     ],
     suggestedQueries: [
       "What are the names of the people who created this app?",
-      "Who is Muhammad Umar Farooq and what is his verified background?",
       "Who is Muhammad Soban and where does he study?",
+      "Who is Muhammad Umar Farooq and what is his verified background?",
+    ],
+  },
+  {
+    id: "ch-05",
+    number: "02",
+    title: "Education & Skills (Soban)",
+    scope: "Academic qualifications, Coding Caliber internship, 28 LinkedIn skills, and 20 certifications.",
+    keyFacts: [
+      "Soban: BS AI at UMT (3.36/4.00 CGPA, October 2023–July 2027).",
+      "Automation Engineer intern at Coding Caliber (January–March 2026).",
+      "20 certifications across Google ML Crash Course, IBM RAG, Neo4j, Anthropic, and OpenAI.",
+    ],
+    suggestedQueries: [
+      "What are Soban's educational background and CGPA?",
+      "What certifications and licenses are listed on Soban's LinkedIn?",
+      "What practical work did Soban do at Coding Caliber?",
+    ],
+  },
+  {
+    id: "ch-06",
+    number: "03",
+    title: "Project Atlas (Soban)",
+    scope: "10 public repositories including CodeLens, WebRAG Studio, ParallelWeb, and OS Pilot.",
+    keyFacts: [
+      "CodeLens: AI codebase intelligence with Tree-Sitter parsing across 8+ languages, hybrid retrieval, and line citations.",
+      "WebRAG Studio: Local-first Chrome extension with MiniLM embeddings and block-level provenance.",
+      "ParallelWeb: Multi-persona web journey testing with SHA-256 evidence chaining.",
+    ],
+    suggestedQueries: [
+      "What is CodeLens and what architecture does it use?",
+      "What is Soban's WebRAG Studio and how does it relate to DocuStratum?",
+      "What public repositories are on Soban's GitHub?",
     ],
   },
   {
     id: "ch-02",
-    number: "02",
-    title: "Education & Practical Experience",
+    number: "04",
+    title: "Education & Experience (Umar)",
     scope: "Academic records, CGPA, merit scholarships, Techohub internship, and 5 non-public internship codebases.",
     keyFacts: [
       "Umar: BS AI at UMT (CGPA 3.85/4.0, 70% merit scholarship, Rector's & Dean's awards).",
@@ -70,7 +103,7 @@ const CHAPTERS: ChapterDef[] = [
   },
   {
     id: "ch-03",
-    number: "03",
+    number: "05",
     title: "Project Atlas (Umar)",
     scope: "27 public GitHub repositories, commit chronologies, and verified technical architectures.",
     keyFacts: [
@@ -87,8 +120,8 @@ const CHAPTERS: ChapterDef[] = [
   },
   {
     id: "ch-04",
-    number: "04",
-    title: "Public Credentials & Models",
+    number: "06",
+    title: "Credentials & Models (Umar)",
     scope: "18 portfolio certifications, Hugging Face models, Kaggle profiles, and competition results.",
     keyFacts: [
       "Gemma Claim Verification: 1st place in Gemma Hackathon (94.40% accuracy, 94.38% macro-F1).",
@@ -102,38 +135,6 @@ const CHAPTERS: ChapterDef[] = [
     ],
   },
   {
-    id: "ch-05",
-    number: "05",
-    title: "Education & Skills (Soban)",
-    scope: "Academic qualifications, Coding Caliber internship, 28 LinkedIn skills, and 20 certifications.",
-    keyFacts: [
-      "Soban: BS AI at UMT (3.36/4.00 CGPA, October 2023–July 2027).",
-      "Automation Engineer intern at Coding Caliber (January–March 2026).",
-      "20 certifications across Google ML Crash Course, IBM RAG, Neo4j, Anthropic, and OpenAI.",
-    ],
-    suggestedQueries: [
-      "What are Soban's educational background and CGPA?",
-      "What certifications and licenses are listed on Soban's LinkedIn?",
-      "What practical work did Soban do at Coding Caliber?",
-    ],
-  },
-  {
-    id: "ch-06",
-    number: "06",
-    title: "Project Atlas (Soban)",
-    scope: "10 public repositories including CodeLens, WebRAG Studio, ParallelWeb, and OS Pilot.",
-    keyFacts: [
-      "CodeLens: AI codebase intelligence with Tree-Sitter parsing across 8+ languages, hybrid retrieval, and line citations.",
-      "WebRAG Studio: Local-first Chrome extension with MiniLM embeddings and block-level provenance.",
-      "ParallelWeb: Multi-persona web journey testing with SHA-256 evidence chaining.",
-    ],
-    suggestedQueries: [
-      "What is CodeLens and what architecture does it use?",
-      "What is Soban's WebRAG Studio and how does it relate to DocuStratum?",
-      "What public repositories are on Soban's GitHub?",
-    ],
-  },
-  {
     id: "ch-07",
     number: "07",
     title: "Collaboration Map",
@@ -141,11 +142,11 @@ const CHAPTERS: ChapterDef[] = [
     keyFacts: [
       "ChiefMind (Soban) / Personal AI Employee (Umar): Local-first executive assistant.",
       "ClarityHire: AI resume screening with bias auditing and Fairlearn integration.",
-      "OS Pilot: Kaggle capstone recovery agent led by Umar with Soban, Haseeb, and Abdullah.",
+      "Soban collaborated on OS Pilot with Umar (project lead), Haseeb, and Abdullah.",
     ],
     suggestedQueries: [
-      "What projects did Umar and Soban collaborate on?",
-      "What is the relationship between ChiefMind and Personal AI Employee?",
+      "What projects did Soban and Umar collaborate on?",
+      "What is the relationship between Soban’s ChiefMind and Umar’s Personal AI Employee?",
       "Who were the team members on OS Pilot?",
     ],
   },
@@ -172,7 +173,7 @@ const CHAPTERS: ChapterDef[] = [
     scope: "Review methodology, date snapshots (27–28 September 2026), and primary document inventories.",
     keyFacts: [
       "Snapshot date: 27–28 September 2026.",
-      "27 public repositories reviewed in Umar's account; 10 public repositories in Soban's account.",
+      "10 public repositories reviewed in Soban's account; 27 public repositories in Umar's account.",
       "5 non-public internship codebases reviewed locally for professional work summaries.",
     ],
     suggestedQueries: [
@@ -285,7 +286,7 @@ export default function PublicBookPage() {
             <span style={{ color: "#FFFFFF", fontWeight: 600 }}>PUBLIC_KNOWLEDGE_BOOK.md</span>
             <span style={{ color: "var(--border)" }}>//</span>
             <span style={{ color: "var(--text-muted)" }}>CHAPTERS:</span>
-            <span style={{ color: "#FFFFFF", fontWeight: 600 }}>09_VERIFIED</span>
+            <span style={{ color: "#FFFFFF", fontWeight: 600 }}>09_CHAPTERS</span>
             <span style={{ color: "var(--border)" }}>//</span>
             <span style={{ color: "var(--emerald-light)", display: "inline-flex", alignItems: "center", gap: "4px" }}>
               <span style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: "var(--emerald)" }} />
@@ -326,6 +327,7 @@ export default function PublicBookPage() {
               </option>
             ))}
           </select>
+          <ProjectOwnerCard />
         </div>
       </header>
 
@@ -540,7 +542,7 @@ export default function PublicBookPage() {
                     marginBottom: "10px",
                   }}
                 >
-                  Verified Chapter Inquiries
+                  Suggested Chapter Questions
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {activeChapter.suggestedQueries.map((q, qIdx) => (
@@ -848,7 +850,7 @@ export default function PublicBookPage() {
                   padding: "0 4px",
                 }}
               >
-                <span>Query operates on the verified local MiniLM index</span>
+                <span>Queries use the local MiniLM index; inspect source passages to check answers</span>
                 <span>Strict attribution &bull; No halluncinated claims</span>
               </div>
             </div>

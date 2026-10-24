@@ -27,9 +27,9 @@ export default function CookiesPage() {
           </Link>
           <h1 className="legal-title">Cookie & Local Storage Policy</h1>
           <div className="legal-meta">
-            <span>Effective Date: October 4, 2026</span>
+            <span>Effective Date: October 24, 2026</span>
             <span>&bull;</span>
-            <span>Version: 1.0 (Production Verified)</span>
+            <span>Version: 1.1</span>
           </div>
         </header>
 
@@ -40,7 +40,7 @@ export default function CookiesPage() {
         <section className="legal-section">
           <h2>1. What Are Cookies and Local Storage?</h2>
           <p>
-            Cookies and browser LocalStorage are standard web technologies that store small pieces of information on your device when you browse a web application. LocalStorage persists data securely within your browser domain until explicitly cleared or updated by the application.
+            Cookies and browser LocalStorage are standard web technologies that store small pieces of information on your device when you browse a web application. LocalStorage persists data within your browser domain until explicitly cleared or updated by the application.
           </p>
         </section>
 

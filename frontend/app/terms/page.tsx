@@ -27,9 +27,9 @@ export default function TermsPage() {
           </Link>
           <h1 className="legal-title">Terms & Conditions</h1>
           <div className="legal-meta">
-            <span>Effective Date: October 4, 2026</span>
+            <span>Effective Date: October 24, 2026</span>
             <span>&bull;</span>
-            <span>Version: 1.0 (Production Verified)</span>
+            <span>Version: 1.1</span>
           </div>
         </header>
 
@@ -43,7 +43,7 @@ export default function TermsPage() {
         <section className="legal-section">
           <h2>2. Description of the Service</h2>
           <p>
-            Nexus RAG provides an agentic retrieval-augmented generation platform allowing organizations to upload documents (PDF, DOCX, TXT), generate vector embeddings and entity triples, and perform semantic queries with streaming text responses and layout-aware bounding box citations.
+            RAG Pipeline is a personal learning project for uploading documents (PDF, DOCX, TXT), exploring retrieval-augmented generation, and asking questions over documents or a separate public knowledge book. Citation checks do not guarantee answer correctness.
           </p>
         </section>
 
@@ -66,7 +66,7 @@ export default function TermsPage() {
               <strong>Your Content:</strong> You retain all ownership, intellectual property rights, and responsibility for the documents, data, and queries you upload to the platform. We claim no ownership over your proprietary documentation.
             </li>
             <li>
-              <strong>Platform License:</strong> The software, architecture, user interface, and proprietary ingestion pipelines are protected by applicable intellectual property laws.
+              <strong>Platform License:</strong> The project source code is available under the MIT License in the repository. Third-party dependencies and referenced source material retain their respective licenses and rights.
             </li>
             <li>
               <strong>Public Knowledge Book:</strong> The public knowledge book artifacts made available within the demonstration environment are provided solely for evaluation and educational purposes.
@@ -96,12 +96,10 @@ export default function TermsPage() {
         </section>
 
         <section className="legal-section">
-          <h2>7. Governing Law & Dispute Resolution</h2>
-          <div style={{ padding: "14px", backgroundColor: "rgba(255,255,255,0.03)", borderRadius: "8px", border: "1px solid var(--border)" }}>
-            <p style={{ margin: 0, fontSize: "14px" }}>
-              <strong>Jurisdiction:</strong> [TODO: Site Owner — Specify the governing state/country law and agreed dispute forum (e.g., courts of competent jurisdiction or binding arbitration) prior to commercial distribution].
-            </p>
-          </div>
+          <h2>7. Project Questions</h2>
+          <p>
+            For questions about this personal project, visit the <a href="https://github.com/Sobanshahid10/RagPipeline" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>GitHub repository</a>.
+          </p>
         </section>
       </div>
       <Footer />
