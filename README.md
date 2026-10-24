@@ -91,16 +91,6 @@ A personal project by **Muhammad Soban** for learning and experimenting with ret
 
 When a question is submitted, the backend retrieves context, builds a prompt, and generates an answer. Retrieval combines full-text search, dense vector search, and graph traversal. With a Gemini key configured, this path uses `gemini-embedding-2` at 1536 dimensions. Changing embedding models requires reindexing the affected documents.
 
-### Public knowledge book
-
-`/public-book` and `/api/v1/public-book/ask` query the existing public-only index built from `PUBLIC_KNOWLEDGE_BOOK.md`. This path uses local `all-MiniLM-L6-v2` embeddings at 384 dimensions, with its own scripts and artifacts.
-
-The educational workflow has 11 explicit steps: parse, normalize, chunk, add metadata, embed, index, retrieve, rerank, build context, assemble a prompt, and generate an answer. See the [step guides](docs/STEP_01_LOAD_PARSE.md) and the other `docs/STEP_*.md` files. The step-eleven CLI uses Gemini; the browser page supports Gemini and Groq.
-
-Public-book answers receive structural answer and citation validation. Semantic grounding and formal G-Eval remain incomplete. Uploading a document does not run this learning workflow or G-Eval.
-
-Keep `storage/private/` and personal chats outside the public corpus, index, and public-book requests.
-
 ## Architecture
 
 ```mermaid
