@@ -126,7 +126,6 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
           {source && <div style={{fontSize:11,color:"var(--text-muted)",marginBottom:6}}>Source: {source === "public_book" ? "Public knowledge book" : "Selected workspace documents"}</div>}
           <MarkdownRenderer content={displayContent} />
           <RAGPipelineInspector metadata={metadata} />
-          {isStreaming && <span className="streaming-cursor" />}
         </div>
 
         {/* Citations as Clean, Modern Source Pills */}

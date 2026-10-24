@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Layers, Shield, BookOpen, FileText, ExternalLink } from "lucide-react";
+import { Layers, Shield, BookOpen, FileText } from "lucide-react";
 
 export const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
@@ -86,37 +86,6 @@ export const Footer: React.FC = () => {
           </nav>
         </div>
 
-        {/* Compliance & Legal */}
-        <div>
-          <h2 style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "12px", fontWeight: 700 }}>
-            Project Information
-          </h2>
-          <nav aria-label="Footer legal navigation">
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "8px" }}>
-              <li>
-                <Link href="/privacy" style={{ fontSize: "13.5px", color: "var(--text-secondary)", transition: "color 0.15s ease" }}>
-                  Privacy Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/terms" style={{ fontSize: "13.5px", color: "var(--text-secondary)", transition: "color 0.15s ease" }}>
-                  Terms & Conditions
-                </Link>
-              </li>
-              <li>
-                <Link href="/cookies" style={{ fontSize: "13.5px", color: "var(--text-secondary)", transition: "color 0.15s ease" }}>
-                  Cookie Policy
-                </Link>
-              </li>
-              <li>
-                <Link href="/refund" style={{ fontSize: "13.5px", color: "var(--text-secondary)", transition: "color 0.15s ease" }}>
-                  Refund Policy
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </div>
-
         {/* Technical Architecture */}
         <div>
           <h2 style={{ fontSize: "12px", textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: "12px", fontWeight: 700 }}>
@@ -160,14 +129,6 @@ export const Footer: React.FC = () => {
         </div>
         <div style={{ display: "flex", gap: "16px" }}>
           <span>Version 1.0.0</span>
-          <span>&bull;</span>
-          <Link href="/privacy" style={{ color: "var(--text-muted)", textDecoration: "underline" }}>
-            Privacy
-          </Link>
-          <span>&bull;</span>
-          <Link href="/terms" style={{ color: "var(--text-muted)", textDecoration: "underline" }}>
-            Terms
-          </Link>
         </div>
       </div>
     </footer>

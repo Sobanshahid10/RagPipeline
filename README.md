@@ -16,20 +16,26 @@
 A personal project by **Muhammad Soban** for learning and experimenting with retrieval-augmented generation. It combines a document chat app with a separate public knowledge book explorer.
 
 > **Project status · Personal / experimental**
-> Built to learn, inspect, and improve RAG workflows. Complete answer grounding and production readiness have not been established.
+> Built to learn, inspect, and improve RAG workflows. Complete answer grounding.
 
-| API | Interface | Search & storage | Background work | Answer providers |
-| :--- | :--- | :--- | :--- | :--- |
-| FastAPI · Python | Next.js · TypeScript | PostgreSQL · pgvector | Redis · Celery | Gemini · Groq |
-
-## People and links
-
-| Repository owner | Collaborator |
-| :--- | :--- |
-| **[Muhammad Soban](https://github.com/Sobanshahid10)** | **Muhammad Umar Farooq** |
-| [Project repository](https://github.com/Sobanshahid10/RagPipeline) | [Personal portfolio](https://omerfarooq223.github.io) |
-
-The **MS** profile button in Public Book introduces Soban and links to the repository and Umar’s portfolio. Soban’s identity, education, and projects appear first in the explorer.
+<div align="center">
+  <table>
+    <tr>
+      <th>API</th>
+      <th>Interface</th>
+      <th>Search & storage</th>
+      <th>Background work</th>
+      <th>Answer providers</th>
+    </tr>
+    <tr>
+      <td>FastAPI · Python</td>
+      <td>Next.js · TypeScript</td>
+      <td>PostgreSQL · pgvector</td>
+      <td>Redis · Celery</td>
+      <td>Gemini · Groq</td>
+    </tr>
+  </table>
+</div>
 
 ## App gallery
 
@@ -40,7 +46,7 @@ The **MS** profile button in Public Book introduces Soban and links to the repos
 </p>
 
 <p align="center">
-  <a href="assets/readme/public-book.png"><img src="assets/readme/public-book.png" alt="Public Book explorer with Soban’s sections listed first" width="100%" /></a>
+  <a href="assets/readme/public-book-current.png"><img src="assets/readme/public-book-current.png" alt="Public Book explorer with Soban’s sections listed first" width="100%" /></a>
 </p>
 <p align="center">
   <sub>01 — THE EXPLORER</sub><br />
@@ -51,21 +57,21 @@ The **MS** profile button in Public Book introduces Soban and links to the repos
 <table>
   <tr>
     <td width="33%" align="center" valign="top">
-      <a href="assets/readme/owner-card-centered.png"><img src="assets/readme/owner-card-centered.png" alt="Muhammad Soban’s updated card with centered education and link labels" width="100%" /></a>
+      <a href="assets/readme/owner-card-current.png"><img src="assets/readme/owner-card-current.png" alt="Muhammad Soban’s updated card with centered education and link labels" width="100%" /></a>
       <p align="center"><sub>02 — THE OWNER</sub><br /><strong>Muhammad Soban</strong><br />Meet the developer behind the project.</p>
     </td>
     <td width="33%" align="center" valign="top">
-      <a href="assets/readme/chat.png"><img src="assets/readme/chat.png" alt="Chat workbench showing source scope and suggested document questions" width="100%" /></a>
+      <a href="assets/readme/chat-current.png"><img src="assets/readme/chat-current.png" alt="Chat workbench showing source scope and suggested document questions" width="100%" /></a>
       <p align="center"><sub>03 — THE WORKBENCH</sub><br /><strong>Document chat</strong><br />Choose a source. Start with a question.</p>
     </td>
     <td width="33%" align="center" valign="top">
-      <a href="assets/readme/documents.png"><img src="assets/readme/documents.png" alt="Empty document library with upload area, search, and processing filters" width="100%" /></a>
+      <a href="assets/readme/documents-current.png"><img src="assets/readme/documents-current.png" alt="Empty document library with upload area, search, and processing filters" width="100%" /></a>
       <p align="center"><sub>04 — THE LIBRARY</sub><br /><strong>Your documents</strong><br />Upload, organize, and track processing.</p>
     </td>
   </tr>
 </table>
 
-<p align="center"><sub>Interface screenshots from an isolated offline preview with a demo account and empty document/model fixtures.<br />These views show the UI, not live retrieval, successful ingestion, or generated answers.</sub></p>
+<p align="center"><sub>Captured from the running local app using a dedicated demo workspace.<br />The empty library and chat screens show their initial states; no private documents or generated answers are pictured.</sub></p>
 
 ## What you can explore
 
@@ -182,7 +188,13 @@ Run the backend from the repository checkout with the public-book artifacts, cac
 PYTHONPATH=".:backend" python -m uvicorn app.main:app --reload --port 8001
 ```
 
-Stop the container backend first if it already occupies port 8001. The document worker is still needed for uploaded documents. Open Public Book after signing in; it queries the prepared index directly.
+Stop the container backend and container worker before running them from the checkout; keep PostgreSQL and Redis running. Use one local worker process to avoid mixing older workers with the current code:
+
+```bash
+PYTHONPATH=".:backend" python -m celery -A app.celery_app worker --hostname='rag-local@%h' --pool=threads --concurrency=2 -Q high_priority,low_priority --loglevel=info
+```
+
+Documents become searchable after their text and vectors are indexed. Graph extraction continues afterward, and its separate status is shown in the library. Open Public Book after signing in; it queries the prepared index directly.
 
 `docker-compose.prod.yml` and the Nginx configuration are deployment experiments, not evidence that the project is production ready.
 

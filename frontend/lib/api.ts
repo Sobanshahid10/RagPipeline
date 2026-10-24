@@ -109,7 +109,7 @@ export type SSEEvent =
   | { type: "token"; content: string }
   | { type: "citation"; citation: CitationBlock }
   | { type: "done"; answer?: string; metadata?: QueryMetadata }
-  | { type: "error"; message: string };
+  | { type: "error"; message: string; code?: string; retryable?: boolean };
 
 /**
  * Log in with user credentials and obtain a JWT bearer token.
@@ -317,16 +317,21 @@ export async function* streamQuery(query: string, token: string, model?: string,
               answer: parsed.answer,
               metadata: parsed.metadata,
             };
+            return;
+          } else if (parsed.type === "error") {
+            yield parsed as SSEEvent;
+            return;
           } else {
             yield parsed as SSEEvent;
           }
         } catch {
-          // Non-JSON SSE payload fallback
-          yield { type: "token", content: jsonStr };
+          yield { type: "error", message: "The response stream contained invalid data. Please retry." };
+          return;
         }
       }
     }
   }
+  yield { type: "error", message: "The connection ended before the answer completed. Please retry." };
 }
 
 /** Save thumbs-up or thumbs-down feedback for a completed query. */

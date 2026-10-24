@@ -16,7 +16,9 @@ import {
   uploadDocument
 } from "@/lib/api";
 import { ChatMessage } from "@/components/ChatMessage";
+import { ThinkingIndicator } from "@/components/ThinkingIndicator";
 import { DEFAULT_MODEL, isAvailableModel, MODEL_OPTIONS } from "@/lib/models";
+import { isSavedChatMessage, isAppFailureText, lastOriginalQuestion } from "@/lib/chat-history";
 import dynamic from "next/dynamic";
 const PDFViewer = dynamic(() => import("@/components/PDFViewer").then(module => module.PDFViewer), { ssr: false });
 import {
@@ -30,7 +32,6 @@ import {
   Trash2,
   AlertCircle,
   Download,
-  Activity,
   Layers,
   Database,
   Search,
@@ -155,6 +156,7 @@ export default function ChatPage() {
   const [isPdfExpanded, setIsPdfExpanded] = useState(false);
   const [showPdfPanel, setShowPdfPanel] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryQuestion, setRetryQuestion] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -172,9 +174,10 @@ export default function ChatPage() {
       if (stored) {
         const parsed: ChatSession[] = JSON.parse(stored);
         if (parsed.length > 0) {
-          setSessions(parsed);
+          const restored = parsed.map(session => ({ ...session, messages: (session.messages || []).filter(isSavedChatMessage) }));
+          setSessions(restored);
           setCurrentSessionId(parsed[0].id);
-          setMessages(parsed[0].messages || []);
+          setMessages(restored[0].messages);
           setKnowledgeSource(parsed[0].source || "documents");
           setSelectedDocumentIds(parsed[0].documentIds || []);
           return;
@@ -209,7 +212,7 @@ export default function ChatPage() {
               : firstUserMsg.content
             : s.title;
 
-          return { ...s, messages, title, source: knowledgeSource, documentIds: selectedDocumentIds, updatedAt: Date.now() };
+          return { ...s, messages: messages.filter(isSavedChatMessage), title, source: knowledgeSource, documentIds: selectedDocumentIds, updatedAt: Date.now() };
         }
         return s;
       });
@@ -303,6 +306,8 @@ export default function ChatPage() {
   };
 
   const handleCreateNewSession = () => {
+    setError(null);
+    setRetryQuestion(null);
     requestController.current?.abort();
     setIsStreaming(false);
     const newSession: ChatSession = {
@@ -324,6 +329,8 @@ export default function ChatPage() {
   };
 
   const handleSwitchSession = (session: ChatSession) => {
+    setError(null);
+    setRetryQuestion(null);
     setCurrentSessionId(session.id);
     requestController.current?.abort();
     setIsStreaming(false);
@@ -371,9 +378,19 @@ export default function ChatPage() {
     if (e) e.preventDefault();
     const queryText = (customPrompt || inputQuery).trim();
     if (!queryText || isStreaming || !token) return;
+    if (isAppFailureText(queryText)) {
+      const original = lastOriginalQuestion(messages);
+      setInputQuery(original || "");
+      setRetryQuestion(original);
+      setError(original
+        ? "This is an app error message. Your original question has been restored below; you can retry it with the selected model."
+        : "This is an app error message. Enter the question you want to ask about your documents.");
+      return;
+    }
     if (!availableModels.includes(activeModel)) { showToast("error", "Select a configured answer model"); return; }
 
     setError(null);
+    setRetryQuestion(null);
     setInputQuery("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
 
@@ -430,17 +447,10 @@ export default function ChatPage() {
         if (controller.signal.aborted) return;
         const errMsg = err.message || "Failed to query public knowledge book.";
         setError(errMsg);
+        setRetryQuestion(queryText);
         showToast("error", "Public Book Query Error", errMsg);
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMsgId
-              ? {
-                  ...msg,
-                  content: `⚠️ Failed to query public knowledge book: ${errMsg}`,
-                }
-              : msg
-          )
-        );
+        setMessages((prev) => prev.filter(msg => msg.id !== assistantMsgId));
+        setInputQuery(queryText);
       } finally {
         if (requestController.current === controller) setIsStreaming(false);
       }
@@ -451,7 +461,7 @@ export default function ChatPage() {
       return;
     }
 
-    setStreamingPhase("Routing intent & semantic cache lookup...");
+    setStreamingPhase("Searching your sources and checking the response…");
 
     let accumulatedContent = "";
     const currentCitations: CitationBlock[] = [];
@@ -503,26 +513,22 @@ export default function ChatPage() {
           setIsStreaming(false);
         } else if (event.type === "error") {
           setError(event.message);
+          setRetryQuestion(queryText);
           showToast("error", "Query execution failed", event.message);
           setIsStreaming(false);
+          setMessages((prev) => prev.filter(msg => msg.id !== assistantMsgId));
+          setInputQuery(queryText);
+          break;
         }
       }
     } catch (err: any) {
       if (controller.signal.aborted) return;
       console.error("Stream query error:", err);
       setError(err.message || "Failed to stream query response.");
+      setRetryQuestion(queryText);
       showToast("error", "Backend connection error", err.message || "Failed to stream answer.");
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === assistantMsgId && !msg.content
-            ? {
-                ...msg,
-                content:
-                  "⚠️ An error occurred while retrieving or generating an answer. Please verify backend connectivity.",
-              }
-            : msg
-        )
-      );
+      setMessages((prev) => prev.filter(msg => msg.id !== assistantMsgId));
+      setInputQuery(queryText);
     } finally {
       if (requestController.current === controller) setIsStreaming(false);
     }
@@ -554,6 +560,7 @@ export default function ChatPage() {
   const exportChat = () => {
     if (messages.length === 0) return;
     const markdownContent = messages
+      .filter(isSavedChatMessage)
       .map((m) => `### ${m.role === "user" ? "User" : "Nexus Assistant"}\n\n${m.content}\n\n`)
       .join("---\n\n");
     const blob = new Blob([markdownContent], { type: "text/markdown" });
@@ -1062,7 +1069,14 @@ export default function ChatPage() {
             }}
           >
             <AlertCircle size={16} />
-            <span>{error}</span>
+            <span style={{ flex: 1 }}>{error}</span>
+            {retryQuestion && (
+              <button type="button" disabled={isStreaming}
+                onClick={() => handleSend(undefined, retryQuestion)}
+                style={{ border: "1px solid var(--border)", borderRadius: "6px", padding: "6px 10px", background: "var(--bg-secondary)", color: "var(--text-primary)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                Retry original question
+              </button>
+            )}
           </div>
         )}
 
@@ -1176,7 +1190,9 @@ export default function ChatPage() {
               }}
             >
               {messages.map((msg, index) => (
-                <ChatMessage
+                isStreaming && index === messages.length - 1 && msg.role === "assistant" && !msg.content
+                ? <ThinkingIndicator key={msg.id} phase={streamingPhase} />
+                : <ChatMessage
                   key={msg.id || index}
                   source={msg.source}
                   role={msg.role}
@@ -1188,29 +1204,6 @@ export default function ChatPage() {
                   activeCitation={selectedCitation}
                 />
               ))}
-
-              {/* Live Streaming Stage Pill */}
-              {isStreaming && (
-                <div
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    padding: "4px 10px",
-                    backgroundColor: "rgba(255, 255, 255, 0.05)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "14px",
-                    fontSize: "12px",
-                    color: "var(--foreground)",
-                    fontWeight: 500,
-                    margin: "0 0 16px 42px",
-                    width: "fit-content",
-                  }}
-                >
-                  <Activity size={13} style={{ color: "var(--text-muted)" }} />
-                  <span>{streamingPhase}</span>
-                </div>
-              )}
 
               <div ref={messagesEndRef} />
             </div>

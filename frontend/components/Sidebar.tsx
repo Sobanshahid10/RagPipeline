@@ -783,26 +783,7 @@ export const Sidebar: React.FC = () => {
             </div>
           )}
 
-          {!collapsed && (
-            <div
-              style={{
-                marginTop: "12px",
-                paddingTop: "10px",
-                borderTop: "1px solid var(--border-subtle)",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px",
-                fontSize: "11px",
-                color: "var(--text-muted)",
-              }}
-            >
-              <Link href="/privacy" style={{ color: "var(--text-muted)" }}>Privacy</Link>
-              <span>&bull;</span>
-              <Link href="/terms" style={{ color: "var(--text-muted)" }}>Terms</Link>
-              <span>&bull;</span>
-              <Link href="/cookies" style={{ color: "var(--text-muted)" }}>Cookies</Link>
-            </div>
-          )}
+
         </div>
       </aside>
 

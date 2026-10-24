@@ -81,7 +81,7 @@ export default function DocumentsPage() {
   useEffect(() => {
     if (!token) return;
     const hasUnfinished = documents.some(
-      (doc) => doc.status === "pending" || doc.status === "processing"
+      (doc) => doc.status === "pending" || doc.status === "processing" || doc.graph_status === "processing"
     );
 
     if (!hasUnfinished) return;
@@ -184,19 +184,28 @@ export default function DocumentsPage() {
   const totalChunks = documents.reduce((sum, d) => sum + (d.chunk_count || 0), 0);
   const readyDocs = documents.filter((d) => d.status === "indexed" || d.status === "ready").length;
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, stage?: string, graphStatus?: string) => {
+    const processingLabels: Record<string, string> = {
+      parsing: "Parsing document",
+      privacy: "Masking personal information",
+      summarizing: "Summarizing document",
+      chunking: "Creating chunks",
+      embedding: "Generating embeddings",
+      indexing: "Saving search index",
+      graph: "Extracting graph relationships",
+    };
     switch (status.toLowerCase()) {
       case "indexed":
       case "ready":
         return (
           <span className="badge badge-indexed">
-            <CheckCircle2 size={12} /> Ready
+            <CheckCircle2 size={12} /> {graphStatus === "processing" ? "Search ready · Building graph" : graphStatus === "degraded" ? "Search ready · Graph limited" : "Ready"}
           </span>
         );
       case "processing":
         return (
           <span className="badge badge-processing">
-            <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Parsing Layout
+            <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> {processingLabels[stage || ""] || "Processing document"}
           </span>
         );
       case "pending":
@@ -561,7 +570,7 @@ export default function DocumentsPage() {
 
               {/* Status & Actions */}
               <div style={{ display: "flex", alignItems: "center", gap: "14px", flexShrink: 0 }}>
-                {getStatusBadge(doc.status)}
+                {getStatusBadge(doc.status, doc.stage, doc.graph_status)}
                 {doc.stage && <span style={{fontSize:11,color:"var(--text-muted)"}}> {doc.stalled ? "Stalled" : doc.stage}</span>}
 
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -652,7 +661,7 @@ export default function DocumentsPage() {
                   >
                     <FileText size={18} color="var(--text-secondary)" />
                   </div>
-                  {getStatusBadge(doc.status)}
+                  {getStatusBadge(doc.status, doc.stage, doc.graph_status)}
                 {doc.stage && <span style={{fontSize:11,color:"var(--text-muted)"}}> {doc.stalled ? "Stalled" : doc.stage}</span>}
                 </div>
 

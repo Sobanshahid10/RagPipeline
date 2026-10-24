@@ -418,23 +418,10 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Contextual Form Privacy & Legal Notice */}
-          <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "14px", textAlign: "center", lineHeight: 1.5 }}>
-            By continuing, you agree to our{" "}
-            <a href="/terms" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>
-              Terms &amp; Conditions
-            </a>{" "}
-            and acknowledge our{" "}
-            <a href="/privacy" style={{ color: "var(--accent-light)", textDecoration: "underline" }}>
-              Privacy Policy
-            </a>
-            . Passwords are salted and hashed using bcrypt.
-          </div>
-
         </motion.div>
       </div>
 
-      {/* Login Screen Legal Footer */}
+      {/* Login Screen Footer */}
       <footer
         style={{
           position: "relative",
@@ -450,14 +437,6 @@ export default function LoginPage() {
         }}
       >
         <span>&copy; {new Date().getFullYear()} Nexus RAG Platform</span>
-        <span>&bull;</span>
-        <a href="/privacy" style={{ color: "var(--text-secondary)" }}>Privacy Policy</a>
-        <span>&bull;</span>
-        <a href="/terms" style={{ color: "var(--text-secondary)" }}>Terms &amp; Conditions</a>
-        <span>&bull;</span>
-        <a href="/cookies" style={{ color: "var(--text-secondary)" }}>Cookie Policy</a>
-        <span>&bull;</span>
-        <a href="/refund" style={{ color: "var(--text-secondary)" }}>Refund Policy</a>
       </footer>
     </div>
   );

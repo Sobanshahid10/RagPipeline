@@ -92,14 +92,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!isLoading) {
       const isAuthRoute = pathname?.startsWith("/login");
-      const isPublicRoute =
-        Boolean(isAuthRoute ||
-        pathname?.startsWith("/privacy") ||
-        pathname?.startsWith("/terms") ||
-        pathname?.startsWith("/cookies") ||
-        pathname?.startsWith("/refund"));
 
-      if (!token && !isPublicRoute) {
+      if (!token && !isAuthRoute) {
         router.push("/login");
       } else if (token && isAuthRoute) {
         router.push("/chat");
