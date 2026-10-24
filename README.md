@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/readme/banner.svg" alt="RAG Pipeline — a personal learning project by Muhammad Soban" width="100%" />
+  <img src="docs/readme/banner.svg" alt="RAG Pipeline — a personal learning project by Muhammad Soban" width="100%" />
 </p>
 
 <p align="center">
@@ -46,7 +46,7 @@ A personal project by **Muhammad Soban** for learning and experimenting with ret
 </p>
 
 <p align="center">
-  <a href="assets/readme/public-book-current.png"><img src="assets/readme/public-book-current.png" alt="Public Book explorer with Soban’s sections listed first" width="100%" /></a>
+  <a href="docs/readme/public-book-current.png"><img src="docs/readme/public-book-current.png" alt="Public Book explorer with Soban’s sections listed first" width="100%" /></a>
 </p>
 <p align="center">
   <sub>01 — THE EXPLORER</sub><br />
@@ -57,15 +57,15 @@ A personal project by **Muhammad Soban** for learning and experimenting with ret
 <table>
   <tr>
     <td width="33%" align="center" valign="top">
-      <a href="assets/readme/owner-card-current.png"><img src="assets/readme/owner-card-current.png" alt="Muhammad Soban’s updated card with centered education and link labels" width="100%" /></a>
+      <a href="docs/readme/owner-card-current.png"><img src="docs/readme/owner-card-current.png" alt="Muhammad Soban’s updated card with centered education and link labels" width="100%" /></a>
       <p align="center"><sub>02 — THE OWNER</sub><br /><strong>Muhammad Soban</strong><br />Meet the developer behind the project.</p>
     </td>
     <td width="33%" align="center" valign="top">
-      <a href="assets/readme/chat-current.png"><img src="assets/readme/chat-current.png" alt="Chat workbench showing source scope and suggested document questions" width="100%" /></a>
+      <a href="docs/readme/chat-current.png"><img src="docs/readme/chat-current.png" alt="Chat workbench showing source scope and suggested document questions" width="100%" /></a>
       <p align="center"><sub>03 — THE WORKBENCH</sub><br /><strong>Document chat</strong><br />Choose a source. Start with a question.</p>
     </td>
     <td width="33%" align="center" valign="top">
-      <a href="assets/readme/documents-current.png"><img src="assets/readme/documents-current.png" alt="Empty document library with upload area, search, and processing filters" width="100%" /></a>
+      <a href="docs/readme/documents-current.png"><img src="docs/readme/documents-current.png" alt="Empty document library with upload area, search, and processing filters" width="100%" /></a>
       <p align="center"><sub>04 — THE LIBRARY</sub><br /><strong>Your documents</strong><br />Upload, organize, and track processing.</p>
     </td>
   </tr>
