@@ -30,6 +30,13 @@ SUPPORTED_ENTITIES: List[str] = [
     "IP_ADDRESS",
 ]
 
+# These exact software labels are not people's names. spaCy's small model can
+# misclassify a word within them (e.g. "Dispatcher") as PERSON. Other entity
+# types and names, including "Agent John Doe", must still be anonymized.
+TECHNICAL_LABELS = re.compile(
+    r"\b(?:Agent Dispatcher|Quarantine Mode|Maintenance Mode|Recovery Mode|Safe Mode|Debug Mode)\b"
+)
+
 # Regex fallback patterns in case Presidio/spaCy runtime model is unavailable
 FALLBACK_PATTERNS = [
     (
@@ -113,6 +120,12 @@ def mask_pii(text: str, language: str = "en") -> str:
         results = _analyzer.analyze(
             text=text, entities=SUPPORTED_ENTITIES, language=language
         )
+        labels = [(match.start(), match.end()) for match in TECHNICAL_LABELS.finditer(text)]
+        results = [
+            result for result in results
+            if result.entity_type != "PERSON"
+            or not any(start <= result.start and result.end <= end for start, end in labels)
+        ]
 
         if not results:
             return text

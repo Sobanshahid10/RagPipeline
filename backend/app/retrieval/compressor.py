@@ -52,7 +52,8 @@ def _extractive_compress(text: str, query: str, ratio: float) -> str:
         sentence_words = sentence.split()
         if selected and used + len(sentence_words) > budget:
             continue
-        selected.append((index, " ".join(sentence_words[: max(1, budget - used)])))
+        # A budget must not remove the end of a condition or its exception.
+        selected.append((index, sentence))
         used += len(sentence_words)
         if used >= budget:
             break
@@ -106,6 +107,7 @@ def compress_context(
     compressed_chunks: list[dict[str, Any]] = []
     for index, chunk in enumerate(chunks):
         item = chunk.copy()
+        item["source_content"] = chunk.get("source_content", originals[index])
         mapped_text = " ".join(assigned[index]).strip()
         item["content"] = mapped_text or _extractive_compress(originals[index], query, ratio)
         compressed_chunks.append(item)

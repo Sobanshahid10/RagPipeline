@@ -6,6 +6,7 @@ retrieval durations are recorded by the retrieval engine.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -40,6 +41,7 @@ from app.agentic.pipeline import process_query
 from app.config import settings
 from app.core.dependencies import get_current_user
 from app.generation.streamer import ConfiguredLLMClient, stream_response
+from app.generation.errors import AnswerFailure
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -290,40 +292,55 @@ async def query_documents(
         try:
             if request.include_context:
                 yield _sse({"type": "retrieval", "chunks": chunks})
-            async for event in stream_response(
-                generation_question, chunks, selected_client, route_used="HYBRID"
-            ):
-                if event["type"] == "token":
-                    answer_parts.append(event["content"])
-                if event["type"] == "done":
-                    metadata = {
-                        **event["metadata"],
-                        "interaction_id": str(interaction_id),
-                        "session_id": str(session_id),
-                        "retrieval_scope": retrieval_scope,
-                        "total_latency_ms": round((perf_counter() - started) * 1000),
-                    }
-                    metadata["ttft_ms"] = metadata["total_latency_ms"]
-                    # Persist before exposing the feedback ID to avoid a completion race.
-                    await _persist_interaction(
-                        interaction_id,
-                        tenant_id,
-                        user_id,
-                        session_id,
-                        request.query,
-                        "HYBRID",
-                        chunks,
-                        "".join(answer_parts),
-                        metadata,
-                    )
-                    event = {**event, "metadata": metadata}
-                yield _sse(event)
+            async with asyncio.timeout(settings.ANSWER_TIMEOUT_SECONDS):
+                async for event in stream_response(
+                    generation_question, chunks, selected_client, route_used="HYBRID"
+                ):
+                    if event["type"] == "token":
+                        answer_parts.append(event["content"])
+                    if event["type"] == "done":
+                        metadata = {
+                            **event["metadata"],
+                            "interaction_id": str(interaction_id),
+                            "session_id": str(session_id),
+                            "retrieval_scope": retrieval_scope,
+                            "total_latency_ms": round((perf_counter() - started) * 1000),
+                        }
+                        metadata["ttft_ms"] = metadata["total_latency_ms"]
+                        # Persist before exposing the feedback ID to avoid a completion race.
+                        await _persist_interaction(
+                            interaction_id,
+                            tenant_id,
+                            user_id,
+                            session_id,
+                            request.query,
+                            "HYBRID",
+                            chunks,
+                            "".join(answer_parts),
+                            metadata,
+                        )
+                        event = {**event, "metadata": metadata}
+                    yield _sse(event)
         except Exception as exc:
-            logger.warning("Query response failed (%s)", type(exc).__name__)
+            if isinstance(exc, TimeoutError):
+                exc = AnswerFailure(
+                    "answer_timeout",
+                    f"The selected model did not complete a checked answer within {settings.ANSWER_TIMEOUT_SECONDS:g} seconds. Retry or choose another configured model.",
+                    retryable=True,
+                )
+            code = exc.code if isinstance(exc, AnswerFailure) else "answer_failed"
+            logger.warning(
+                "Query response failed (code=%s, model=%s, error=%s)",
+                code, selected_client.model, type(exc).__name__,
+            )
             yield _sse(
                 {
                     "type": "error",
-                    "message": "Answer could not be completed and verified. Please retry or choose another configured model.",
+                    "code": code,
+                    "retryable": exc.retryable if isinstance(exc, AnswerFailure) else True,
+                    **({"retry_after_seconds": exc.retry_after_seconds}
+                       if isinstance(exc, AnswerFailure) and exc.retry_after_seconds is not None else {}),
+                    "message": str(exc) if isinstance(exc, AnswerFailure) else "Answer could not be completed and verified. Please retry or choose another configured model.",
                 }
             )
 

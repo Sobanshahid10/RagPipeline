@@ -82,9 +82,14 @@ async def retrieve(
             _reranker.rerank, cleaned_query, fused[:40], 5
         )
         reranked_at = perf_counter()
-        compressed = await asyncio.to_thread(
-            compress_context, reranked, cleaned_query, 0.5
-        )
+        # Small contexts fit comfortably without lossy compression or loading a
+        # compressor model. Keep complete rules and exceptions for short PDFs.
+        if sum(len(str(chunk.get("content", ""))) for chunk in reranked) <= 12_000:
+            compressed = reranked
+        else:
+            compressed = await asyncio.to_thread(
+                compress_context, reranked, cleaned_query, 0.5
+            )
         finished = perf_counter()
 
         logger.info(

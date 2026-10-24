@@ -21,6 +21,21 @@ from app.ingestion.pii import mask_pii
 logger = logging.getLogger(__name__)
 
 
+async def _extract_graph_batch(chunks, tenant_id):
+    # Bound the whole provider operation, including a stream that keeps trickling
+    # tokens and never triggers its HTTP read timeout.
+    return await asyncio.gather(
+        *(
+            asyncio.wait_for(
+                extract_triples(chunk["id"], chunk["content"], tenant_id),
+                timeout=settings.GRAPH_EXTRACTION_TIMEOUT_SECONDS,
+            )
+            for chunk in chunks
+        ),
+        return_exceptions=True,
+    )
+
+
 async def _update_document_status(
     doc_id, status, total_pages=0, error_msg=None, *, tenant_id, **metadata
 ):
@@ -123,7 +138,13 @@ async def run_pipeline(
             text = "\n\n".join(p["content"] for p in masked_pages)
             if not text.strip():
                 raise ValueError("Document has no usable text after privacy processing")
+            await _update_document_status(
+                document_id, "processing", tenant_id=tenant_id, stage="summarizing"
+            )
             summary = await generate_contextual_summary(text)
+            await _update_document_status(
+                document_id, "processing", tenant_id=tenant_id, stage="chunking"
+            )
             chunks = []
             for page in masked_pages:
                 for chunk in semantic_chunk(
@@ -163,19 +184,28 @@ async def run_pipeline(
             )
             await _persist_chunks(document_id, tenant_id, chunks)
             await _update_document_status(
-                document_id, "processing", tenant_id=tenant_id, stage="graph"
+                document_id,
+                "indexed",
+                tenant_id=tenant_id,
+                stage="graph",
+                graph_status="processing",
+                embedding_identity=identity,
+                pii_mode="presidio" if settings.PII_REQUIRED else "best_effort",
             )
             failures = 0
             graph_chunks = chunks[: settings.MAX_GRAPH_CHUNKS]
             for offset in range(0, len(graph_chunks), 4):
-                results = await asyncio.gather(
-                    *(
-                        extract_triples(c["id"], c["content"], tenant_id)
-                        for c in graph_chunks[offset : offset + 4]
-                    ),
-                    return_exceptions=True,
+                results = await _extract_graph_batch(
+                    graph_chunks[offset : offset + 4], tenant_id
                 )
-                failures += sum(isinstance(result, BaseException) for result in results)
+                for result in results:
+                    if isinstance(result, BaseException):
+                        failures += 1
+                        logger.warning(
+                            "Graph extraction failed for document %s (%s)",
+                            document_id,
+                            type(result).__name__,
+                        )
             await _update_document_status(
                 document_id,
                 "indexed",

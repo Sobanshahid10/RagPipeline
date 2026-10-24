@@ -20,9 +20,11 @@ class Settings(BaseSettings):
     MAX_DOCUMENT_CHARS: int = 2_000_000
     MAX_DOCUMENT_CHUNKS: int = 4000
     MAX_GRAPH_CHUNKS: int = 128
+    GRAPH_EXTRACTION_TIMEOUT_SECONDS: float = Field(default=45, gt=0, le=300)
     MAX_TENANT_STORAGE_BYTES: int = 1024 * 1024 * 1024
     PII_REQUIRED: bool = True
     MAX_ANSWER_CHARS: int = 24000
+    ANSWER_TIMEOUT_SECONDS: float = Field(default=45, gt=0, le=300)
     QUERY_BUDGET_PER_DAY: int = 1000
 
     @model_validator(mode="after")

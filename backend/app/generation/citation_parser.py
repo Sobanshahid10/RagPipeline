@@ -8,6 +8,16 @@ from typing import Any
 CITATION_PATTERN = re.compile(r"\[SOURCE:([^:\]\s]+):(\d+)\]")
 
 
+def normalize_citation_format(answer: str) -> str:
+    """Canonicalize typography only; IDs and pages still require validation."""
+    return re.sub(
+        r"[\[【]\s*SOURCE\s*:\s*([^:\]\s】]+)\s*:\s*(\d+)\s*[\]】]",
+        lambda match: f"[SOURCE:{match.group(1)}:{match.group(2)}]",
+        answer,
+        flags=re.IGNORECASE,
+    )
+
+
 def has_citation_coverage(answer: str, pattern: re.Pattern) -> bool:
     """Require citations on each prose paragraph/list item, allowing Markdown headings.
 
