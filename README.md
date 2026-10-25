@@ -166,28 +166,6 @@ npm run dev
 
 Open [localhost:3005](http://localhost:3005), register a workspace, and sign in. Upload a document in Documents and wait for processing to finish before asking about it in Chat.
 
-### 3. Use the public-book explorer locally
-
-> **Local checkout required:** the public book needs its own artifacts, cached model, and database index.
-
-The generic backend Docker image does not include the repository-root public-book files and step modules. Its public-book endpoint returns **503**; the Compose setup alone is not sufficient for this path.
-
-Run the backend from the repository checkout with the public-book artifacts, cached MiniLM model, and PostgreSQL public-book index present. Follow the [indexing guide](docs/STEP_06_STORE_INDEX.md) and the preceding step guides to prepare these dependencies. In a configured Python environment, start the backend from the repository root:
-
-```bash
-PYTHONPATH=".:backend" python -m uvicorn app.main:app --reload --port 8001
-```
-
-Stop the container backend and container worker before running them from the checkout; keep PostgreSQL and Redis running. Use one local worker process to avoid mixing older workers with the current code:
-
-```bash
-PYTHONPATH=".:backend" python -m celery -A app.celery_app worker --hostname='rag-local@%h' --pool=threads --concurrency=2 -Q high_priority,low_priority --loglevel=info
-```
-
-Documents become searchable after their text and vectors are indexed. Graph extraction continues afterward, and its separate status is shown in the library. Open Public Book after signing in; it queries the prepared index directly.
-
-`docker-compose.prod.yml` and the Nginx configuration are deployment experiments, not evidence that the project is production ready.
-
 ## Project layout
 
 <details>
